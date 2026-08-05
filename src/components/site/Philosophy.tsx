@@ -40,8 +40,8 @@ export function Philosophy() {
     <section ref={ref} className="edge border-t border-border py-32 md:py-52">
       <p className="eyebrow mb-12">06 — Philosophy</p>
       <h2 className="display-lg max-w-5xl">
-        {LINE.split(" ").map((word) => (
-          <span key={word} data-word className="mr-[0.28em] inline-block">
+        {LINE.split(" ").map((word, i) => (
+          <span key={`${word}-${i}`} data-word className="mr-[0.28em] inline-block">
             {word}
           </span>
         ))}
