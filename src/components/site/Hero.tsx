@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { loadGsap } from "@/lib/gsap";
 import runwayVideo from "@/assets/runway.mp4.asset.json";
+import heroPoster from "@/assets/editorial-1.jpg";
 
 const WORDS = ["Quiet", "Structure"];
 
@@ -45,6 +46,7 @@ export function Hero() {
         <video
           className="h-full w-full object-cover opacity-70 grayscale"
           src={runwayVideo.url}
+          poster={heroPoster}
           autoPlay
           muted
           loop
