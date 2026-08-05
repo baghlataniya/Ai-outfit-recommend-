@@ -1,24 +1,61 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { SmoothScroll } from "@/components/site/SmoothScroll";
+import { CustomCursor } from "@/components/site/CustomCursor";
+import { Preloader } from "@/components/site/Preloader";
+import { Nav } from "@/components/site/Nav";
+import { Hero } from "@/components/site/Hero";
+import { FeaturedCollection } from "@/components/site/FeaturedCollection";
+import { AIStylist } from "@/components/site/AIStylist";
+import { TrendingCategories } from "@/components/site/TrendingCategories";
+import { BestSellers } from "@/components/site/BestSellers";
+import { EditorialScroll } from "@/components/site/EditorialScroll";
+import { Philosophy } from "@/components/site/Philosophy";
+import { Gallery } from "@/components/site/Gallery";
+import { Newsletter } from "@/components/site/Newsletter";
+import { Footer } from "@/components/site/Footer";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const TITLE = "Maison Noir — AI-Styled Monochrome Fashion";
+const DESCRIPTION =
+  "A monochrome wardrobe cut for permanence. Explore the AW26 collection and compose your look with a personal AI stylist.";
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: TITLE },
+      { name: "description", content: DESCRIPTION },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      className="bg-background"
     >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+      <Preloader />
+      <SmoothScroll />
+      <CustomCursor />
+      <Nav />
+      <Hero />
+      <FeaturedCollection />
+      <AIStylist />
+      <TrendingCategories />
+      <BestSellers />
+      <EditorialScroll />
+      <Philosophy />
+      <Gallery />
+      <Newsletter />
+      <Footer />
+    </motion.main>
   );
 }
