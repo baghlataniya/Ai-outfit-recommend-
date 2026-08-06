@@ -1,18 +1,38 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
+import { SearchOverlay } from "@/components/shop/SearchOverlay";
 
-const LINKS = [
-  { label: "Collection", href: "#collection" },
-  { label: "Stylist", href: "#stylist" },
-  { label: "Categories", href: "#categories" },
-  { label: "Editorial", href: "#editorial" },
-  { label: "Journal", href: "#gallery" },
+type NavLink = { label: string; to?: string; params?: Record<string, string>; href?: string };
+
+const LINKS: NavLink[] = [
+  { label: "Shop", to: "/shop" },
+  { label: "Women", to: "/category/$slug", params: { slug: "women" } },
+  { label: "Men", to: "/category/$slug", params: { slug: "men" } },
+  { label: "Shoes", to: "/category/$slug", params: { slug: "shoes" } },
+  { label: "Accessories", to: "/category/$slug", params: { slug: "accessories" } },
 ];
 
-export function Nav() {
+function NavItem({ link, onClick, className }: { link: NavLink; onClick?: () => void; className?: string }) {
+  if (link.to) {
+    return (
+      <Link to={link.to} params={link.params as never} onClick={onClick} className={className}>
+        {link.label}
+      </Link>
+    );
+  }
+  return (
+    <a href={link.href} onClick={onClick} className={className}>
+      {link.label}
+    </a>
+  );
+}
+
+export function Nav({ solid = false }: { solid?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -29,7 +49,7 @@ export function Nav() {
         transition={{ duration: 1, delay: 1.6, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
           "edge fixed inset-x-0 top-0 z-[900] transition-[background-color,backdrop-filter,border-color,padding] duration-700",
-          scrolled
+          scrolled || solid
             ? "border-b border-foreground/10 bg-background/70 py-4 backdrop-blur-xl"
             : "border-b border-transparent py-7",
         )}
@@ -37,26 +57,30 @@ export function Nav() {
         <nav
           className={cn(
             "flex items-center justify-between transition-colors duration-700",
-            scrolled ? "text-foreground" : "text-background",
+            scrolled || solid ? "text-foreground" : "text-background",
           )}
           aria-label="Primary"
         >
-          <a href="#top" className="label-xs tracking-[0.4em]">
+          <Link to="/" className="label-xs tracking-[0.4em]">
             MAISON&nbsp;NOIR
-          </a>
+          </Link>
 
           <ul className="hidden items-center gap-10 md:flex">
             {LINKS.map((l) => (
-              <li key={l.href}>
-                <a href={l.href} className="label-xs link-underline opacity-80 hover:opacity-100">
-                  {l.label}
-                </a>
+              <li key={l.label}>
+                <NavItem link={l} className="label-xs link-underline opacity-80 hover:opacity-100" />
               </li>
             ))}
           </ul>
 
           <div className="flex items-center gap-6">
-            <button className="label-xs hidden link-underline sm:inline-block">Search</button>
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="label-xs link-underline"
+              aria-label="Open search"
+            >
+              Search
+            </button>
             <button className="label-xs link-underline">Bag (0)</button>
             <button
               onClick={() => setOpen(true)}
@@ -88,18 +112,16 @@ export function Nav() {
             <ul className="space-y-2">
               {LINKS.map((l, i) => (
                 <motion.li
-                  key={l.href}
+                  key={l.label}
                   initial={{ y: 60, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.15 + i * 0.07, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <a
-                    href={l.href}
+                  <NavItem
+                    link={l}
                     onClick={() => setOpen(false)}
                     className="display-md block font-extralight"
-                  >
-                    {l.label}
-                  </a>
+                  />
                 </motion.li>
               ))}
             </ul>
@@ -107,6 +129,8 @@ export function Nav() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }
