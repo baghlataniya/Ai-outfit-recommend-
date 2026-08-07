@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, X } from "lucide-react";
 import { FILTER_GROUPS, PRICE_MAX, emptyFilters, type Filters, type FilterKey } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
+import { Slider } from "@/components/ui/slider";
 
 type Props = {
   filters: Filters;
@@ -133,15 +134,14 @@ function Panel({ filters, onChange, resultCount }: Omit<Props, "open" | "onClose
             Up to ${filters.maxPrice.toLocaleString("en-US")}
           </span>
         </div>
-        <input
-          type="range"
+        <Slider
+          value={[filters.maxPrice]}
           min={100}
           max={PRICE_MAX}
           step={10}
-          value={filters.maxPrice}
-          onChange={(e) => onChange({ ...filters, maxPrice: Number(e.target.value) })}
+          onValueChange={([value]) => onChange({ ...filters, maxPrice: value })}
           aria-label="Maximum price"
-          className="mt-4 h-px w-full appearance-none bg-border accent-foreground [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground"
+          className="mt-4"
         />
       </div>
 

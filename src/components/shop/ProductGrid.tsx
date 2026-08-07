@@ -23,7 +23,7 @@ export function ProductGrid({
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 md:gap-x-8 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-x-5 gap-y-12 md:grid-cols-2 md:gap-x-8 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <ProductSkeleton key={i} />
         ))}
@@ -45,7 +45,7 @@ export function ProductGrid({
   return (
     <motion.div
       layout
-      className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 md:gap-x-8 xl:grid-cols-4"
+      className="grid grid-cols-1 gap-x-5 gap-y-12 md:grid-cols-2 md:gap-x-8 xl:grid-cols-4"
     >
       <AnimatePresence mode="popLayout">
         {products.map((p, i) => (

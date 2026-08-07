@@ -21,6 +21,8 @@ import gallery4 from "@/assets/gallery-4.jpg";
 import gallery5 from "@/assets/gallery-5.jpg";
 import gallery6 from "@/assets/gallery-6.jpg";
 
+export type SizeVariant = { value: string; stock: number };
+
 export type Product = {
   id: string;
   name: string;
@@ -37,7 +39,8 @@ export type Product = {
   season: string;
   color: string;
   brand: string;
-  sizes: string[];
+  sizes: string[]; // derived from sizeVariants for backward-compat
+  sizeVariants: SizeVariant[];
   colors: string[];
   rating: number;
   reviews: number;
@@ -51,8 +54,10 @@ export type Product = {
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-type Seed = Omit<Product, "price" | "gallery" | "addedIndex"> & {
+type Seed = Omit<Product, "price" | "gallery" | "addedIndex" | "sizes"> & {
   gallery?: string[];
+  sizes: string[];
+  sizeVariants?: SizeVariant[];
 };
 
 const SEEDS: Seed[] = [
@@ -464,14 +469,43 @@ const SEEDS: Seed[] = [
   },
 ];
 
-export const products: Product[] = SEEDS.map((s, i) => ({
-  ...s,
-  price: money(s.priceValue),
-  gallery: s.gallery ?? [s.image, s.hoverImage, editorial2, editorial3],
-  addedIndex: SEEDS.length - i,
-}));
+// Realistic stock pattern per size index (wraps around if more than 8 sizes)
+const STOCK_PATTERN = [8, 12, 6, 4, 2, 10, 3, 7];
 
-export const getProduct = (id: string) => products.find((p) => p.id === id);
+export const products: Product[] = SEEDS.map((s, i) => {
+  const sizeVariants: SizeVariant[] =
+    s.sizeVariants ??
+    s.sizes.map((value, idx) => ({ value, stock: STOCK_PATTERN[idx % STOCK_PATTERN.length] }));
+  return {
+    ...s,
+    price: money(s.priceValue),
+    gallery: s.gallery ?? [s.image, s.hoverImage, editorial2, editorial3],
+    addedIndex: SEEDS.length - i,
+    sizeVariants,
+    sizes: sizeVariants.map((sv) => sv.value),
+  };
+});
+
+export const getProduct = (idOrSlug?: string): Product | undefined => {
+  if (!idOrSlug) return undefined;
+  try {
+    const raw = decodeURIComponent(idOrSlug).trim();
+    const lower = raw.toLowerCase();
+    const slugify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const targetSlug = slugify(raw);
+
+    return products.find((p) => {
+      if (!p || !p.id) return false;
+      if (p.id === raw || p.id.toLowerCase() === lower) return true;
+      if (slugify(p.id) === targetSlug) return true;
+      if (p.name && slugify(p.name) === targetSlug) return true;
+      if (p.name && p.name.toLowerCase() === lower) return true;
+      return false;
+    });
+  } catch (e) {
+    return undefined;
+  }
+};
 
 export const featured: Product[] = products.slice(0, 4);
 export const bestSellers: Product[] = products.filter((p) => p.bestSeller).slice(0, 4);

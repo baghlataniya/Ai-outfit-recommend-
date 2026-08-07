@@ -43,7 +43,7 @@ export function CategoryHero({
     >
       <div data-cat-media className="absolute inset-0 will-change-transform">
         <img src={image} alt="" aria-hidden className="h-full w-full object-cover opacity-65 grayscale" />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/75 via-ink/25 to-ink/85" />
+        <div className="absolute inset-0 bg-linear-to-b from-ink/75 via-ink/25 to-ink/85" />
       </div>
 
       <div className="edge relative pb-14 md:pb-16">

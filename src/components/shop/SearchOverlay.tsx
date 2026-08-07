@@ -130,7 +130,19 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
               </div>
 
               <div>
-                <p className="eyebrow mb-5">{query ? "Results" : "Suggested"}</p>
+                <div className="flex items-center justify-between mb-5">
+                  <p className="eyebrow">{query ? "Results" : "Suggested"}</p>
+                  {query && (
+                    <Link
+                      to="/search"
+                      search={{ q: query }}
+                      onClick={onClose}
+                      className="label-xs link-underline text-muted-foreground"
+                    >
+                      View All Search Results →
+                    </Link>
+                  )}
+                </div>
                 {results.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No pieces match “{query}”.</p>
                 ) : (
@@ -142,7 +154,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.08 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                       >
-                        <Link to="/shop" onClick={onClose} className="group block">
+                        <Link to="/product/$id" params={{ id: p.id }} onClick={onClose} className="group block">
                           <div className="aspect-[3/4] overflow-hidden bg-muted">
                             <img
                               src={p.image}
@@ -151,7 +163,7 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                               className="h-full w-full object-cover transition-transform duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
                             />
                           </div>
-                          <p className="mt-3 text-sm">{p.name}</p>
+                          <p className="mt-3 text-sm font-medium">{p.name}</p>
                           <p className="text-xs text-muted-foreground">{p.price}</p>
                         </Link>
                       </motion.div>

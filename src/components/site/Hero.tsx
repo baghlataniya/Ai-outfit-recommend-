@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { loadGsap } from "@/lib/gsap";
-import runwayVideo from "@/assets/runway.mp4.asset.json";
-import heroPoster from "@/assets/editorial-1.jpg";
+import heroVideo from "@/assets/mixkit-woman-modeling-a-short-black-dress-805-hd-ready.mp4";
 
 const WORDS = ["Quiet", "Structure"];
 
@@ -45,14 +44,13 @@ export function Hero() {
       <div data-hero-media className="absolute inset-0 will-change-transform">
         <video
           className="h-full w-full object-cover opacity-70 grayscale"
-          src={runwayVideo.url}
-          poster={heroPoster}
+          src={heroVideo}
           autoPlay
           muted
           loop
           playsInline
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/25 to-ink/85" />
+        <div className="absolute inset-0 bg-linear-to-b from-ink/70 via-ink/25 to-ink/85" />
       </div>
 
       <div

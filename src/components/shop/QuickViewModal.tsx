@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import { X, Check, Plus } from "lucide-react";
+import { toast } from "sonner";
 import type { Product } from "@/lib/catalog";
+import { useWishlistStore, useCartStore } from "@/hooks/useCommerce";
 import { WishlistButton } from "./WishlistButton";
+import { SizeSelector } from "./SizeSelector";
+import { ColorSwatch } from "./ColorSwatch";
 import { Rating } from "./Rating";
 import { cn } from "@/lib/utils";
 
@@ -13,17 +18,26 @@ export function QuickViewModal({
   product: Product | null;
   onClose: () => void;
 }) {
+  const { isWished, toggleWishlist } = useWishlistStore();
+  const { addToCart } = useCartStore();
+
   const [activeImage, setActiveImage] = useState(0);
   const [color, setColor] = useState<string | null>(null);
   const [size, setSize] = useState<string | null>(null);
-  const [wished, setWished] = useState(false);
   const [added, setAdded] = useState(false);
+
+  const wished = product ? isWished(product.id) : false;
 
   useEffect(() => {
     if (!product) return;
     setActiveImage(0);
-    setColor(product.colors[0] ?? null);
-    setSize(null);
+    setColor(product.colors?.[0] ?? product.color ?? "Black");
+    setSize(
+      product.sizeVariants?.find((sv) => sv.stock > 0)?.value ??
+        product.sizeVariants?.[0]?.value ??
+        product.sizes?.[0] ??
+        "M"
+    );
     setAdded(false);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -34,10 +48,23 @@ export function QuickViewModal({
     };
   }, [product, onClose]);
 
+  const handleAddToBag = () => {
+    if (!product || !product.inStock) return;
+    addToCart(
+      product.id,
+      1,
+      size ?? product.sizeVariants?.[0]?.value ?? product.sizes?.[0] ?? "M",
+      color ?? product.colors?.[0] ?? product.color ?? "Black"
+    );
+    setAdded(true);
+    toast.success(`"${product.name}" added to bag.`);
+    setTimeout(() => setAdded(false), 1800);
+  };
+
   return (
     <AnimatePresence>
       {product && (
-        <div className="fixed inset-0 z-[970] flex items-end justify-center md:items-center">
+        <div className="fixed inset-0 z-970 flex items-end justify-center md:items-center">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -67,7 +94,7 @@ export function QuickViewModal({
 
             <div className="grid md:grid-cols-2">
               <div className="bg-muted p-4 md:p-6">
-                <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+                <div className="relative aspect-3/4 overflow-hidden bg-muted">
                   <AnimatePresence mode="wait">
                     <motion.img
                       key={activeImage}
@@ -115,50 +142,28 @@ export function QuickViewModal({
 
                 <div>
                   <p className="label-xs mb-3">Colour</p>
-                  <div className="flex flex-wrap gap-2">
-                    {product.colors.map((c) => (
-                      <motion.button
-                        key={c}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setColor(c)}
-                        className={cn(
-                          "label-xs border px-4 py-2 transition-colors duration-400",
-                          c === color ? "border-foreground bg-foreground text-background" : "border-border",
-                        )}
-                      >
-                        {c}
-                      </motion.button>
-                    ))}
-                  </div>
+                  <ColorSwatch
+                    colors={product.colors}
+                    selected={color}
+                    onChange={setColor}
+                    showLabels
+                  />
                 </div>
 
                 <div>
                   <p className="label-xs mb-3">Size</p>
-                  <div className="flex flex-wrap gap-2">
-                    {product.sizes.map((s) => (
-                      <motion.button
-                        key={s}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setSize(s)}
-                        className={cn(
-                          "label-xs min-w-12 border px-3 py-2 transition-colors duration-400",
-                          s === size ? "border-foreground bg-foreground text-background" : "border-border",
-                        )}
-                      >
-                        {s}
-                      </motion.button>
-                    ))}
-                  </div>
+                  <SizeSelector
+                    sizes={product.sizeVariants}
+                    selected={size}
+                    onChange={setSize}
+                  />
                 </div>
 
                 <div className="mt-auto flex flex-wrap items-center gap-3">
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     disabled={!product.inStock}
-                    onClick={() => {
-                      setAdded(true);
-                      setTimeout(() => setAdded(false), 1800);
-                    }}
+                    onClick={handleAddToBag}
                     className="label-xs flex flex-1 items-center justify-center gap-2 bg-foreground px-8 py-4 text-background disabled:opacity-40"
                   >
                     <AnimatePresence mode="wait" initial={false}>
@@ -188,17 +193,19 @@ export function QuickViewModal({
                   </motion.button>
                   <WishlistButton
                     active={wished}
-                    onToggle={() => setWished((w) => !w)}
+                    onToggle={() => toggleWishlist(product.id)}
                     className="h-12 w-12 border border-border bg-transparent"
                   />
                 </div>
 
-                <button
+                <Link
+                  to="/product/$id"
+                  params={{ id: product.id }}
                   onClick={onClose}
                   className="label-xs link-underline self-start text-muted-foreground"
                 >
                   View full product
-                </button>
+                </Link>
               </div>
             </div>
           </motion.div>
