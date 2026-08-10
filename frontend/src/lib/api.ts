@@ -1,0 +1,130 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+
+const TOKEN_KEY = "maison_noir_token";
+
+export const getAuthToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+export const setAuthToken = (token: string | null): void => {
+  if (typeof window === "undefined") return;
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+};
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+}
+
+async function request<T = any>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const config: RequestInit = {
+    ...options,
+    headers,
+  };
+
+  try {
+    const response = await fetch(url, config);
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || `Request failed with status ${response.status}`,
+        error: data.error,
+      };
+    }
+
+    return data;
+  } catch (err) {
+    return {
+      success: false,
+      message: (err as Error).message || "Network error. Please check backend connection.",
+    };
+  }
+}
+
+export const api = {
+  get: <T = any>(endpoint: string, headers?: Record<string, string>) =>
+    request<T>(endpoint, { method: "GET", headers }),
+
+  post: <T = any>(endpoint: string, body?: any, headers?: Record<string, string>) =>
+    request<T>(endpoint, {
+      method: "POST",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  patch: <T = any>(endpoint: string, body?: any, headers?: Record<string, string>) =>
+    request<T>(endpoint, {
+      method: "PATCH",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  put: <T = any>(endpoint: string, body?: any, headers?: Record<string, string>) =>
+    request<T>(endpoint, {
+      method: "PUT",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  delete: <T = any>(endpoint: string, headers?: Record<string, string>) =>
+    request<T>(endpoint, { method: "DELETE", headers }),
+};
+
+// Specialized Commerce API Helpers
+export const commerceApi = {
+  getProducts: (params?: Record<string, any>) => {
+    const queryString = params
+      ? "?" +
+        Object.entries(params)
+          .filter(([_, v]) => v !== undefined && v !== null && v !== "")
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .join("&")
+      : "";
+    return api.get<{ products: any[]; pagination: any }>(`/products${queryString}`);
+  },
+
+  getProduct: (idOrSlug: string) => api.get<{ product: any }>(`/products/${idOrSlug}`),
+
+  getCart: () => api.get<{ items: any[]; summary: any }>("/cart"),
+
+  syncCart: (items: any[]) => api.post<{ items: any[]; summary: any }>("/cart/sync", { items }),
+
+  updateCart: (items: any[]) => api.put<{ items: any[]; summary: any }>("/cart", { items }),
+
+  clearCart: () => api.delete<{ items: any[]; summary: any }>("/cart"),
+
+  getWishlist: () => api.get<{ productIds: string[]; products: any[] }>("/wishlist"),
+
+  syncWishlist: (productIds: string[]) =>
+    api.post<{ productIds: string[]; products: any[] }>("/wishlist/sync", { productIds }),
+
+  toggleWishlist: (productId: string) =>
+    api.post<{ productIds: string[]; products: any[] }>("/wishlist/toggle", { productId }),
+
+  loginGoogle: (credential: string) =>
+    api.post<{ user: any; token: string }>("/auth/google", { credential }),
+};

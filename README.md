@@ -1,112 +1,112 @@
-# Aura Fashion Studio
+# MAISON NOIR — Luxury Fashion & AI Stylist Platform
 
-Build the frontend for a premium AI-powered fashion website inspired by the design language of Zara, COS, ARKET, SSENSE, Fear of God, and Apple. Do not copy these brands directly, but capture the same luxury minimal aesthetic.
+The repository is organized into clean `frontend/` and `backend/` directories.
 
-The visual style must feel editorial, sophisticated, and timeless. Use a monochrome palette with matte black, charcoal, soft white, and subtle gray. Avoid all purple, blue gradients, bright accent colors, glass-heavy interfaces, neumorphism, cartoon styling, or generic AI templates.
+```
+Maison Noir/
+├── frontend/              # React + TypeScript (Vite, Tailwind, TanStack Router, Framer Motion)
+└── backend/               # Node.js + Express + MongoDB (Mongoose, TypeScript, JWT, Zod)
+```
 
-Design the Home page with these sections:
+---
 
-• Full-screen hero using the uploaded fashion runway video as the background
+## Quick Start Guide
 
-• Transparent navigation that becomes blurred while scrolling
+### 1. Backend Setup & Server (Node.js + Express + MongoDB)
 
-• Featured Collection
-
-• AI Stylist banner ("Your Personal AI Stylist")
-
-• Trending Categories
-
-• Best Sellers
-
-• Horizontal editorial showcase with pinned scrolling
-
-• Brand Philosophy section with large typography
-
-• Instagram-inspired fashion gallery
-
-• Newsletter
-
-• Minimal luxury footer
-
-Animation requirements:
-
-• GSAP for scroll-triggered animations
-
-• Hero parallax
-
-• Text reveal with clip-path
-
-• Image reveal masks
-
-• Horizontal scroll sections
-
-• Smooth stagger animations
-
-• Magnetic buttons
-
-• Luxury page transitions
-
-• Premium loading animation
-
-• Smooth scrolling
-
-• Custom cursor
-
-• Product hover image transitions
-
-• Hover zoom
-
-• Sticky sections
-
-• Blur transitions
-
-• Elegant fade and scale effects
-
-Use Framer Motion for:
-
-• Shared layout animations
-
-• AnimatePresence page transitions
-
-• Spring physics
-
-• whileHover interactions
-
-• whileTap interactions
-
-• whileInView animations
-
-• Exit transitions
-
-• Staggered content reveals
-
-Typography should use Manrope or Helvetica Neue with oversized editorial headings, generous spacing, and clean alignment.
-
-Product cards must include hover image swap, wishlist, quick view, add-to-cart interaction, and subtle hover elevation.
-
-Use premium editorial fashion imagery with large whitespace. Never use colorful placeholder images or AI-generated faces.
-
-Build with React, Tailwind CSS, Framer Motion, GSAP, responsive layouts, reusable components, semantic HTML, and clean project structure.
-
-The final experience should feel like a high-end luxury fashion brand rather than a typical e-commerce template.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/da7ea0ba-8484-479c-b08e-8567b7be7cfd).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+Navigate to the backend directory:
+```bash
+cd backend
+npm install
+npm run seed
 npm run dev
 ```
+
+API Health check: `http://localhost:5001/api/health`
+
+### 2. Frontend Setup (React + TypeScript)
+
+In a separate terminal, navigate to the frontend directory:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend Application: `http://localhost:8080`
+
+---
+
+## Google OAuth 2.0 Configuration Guide
+
+### 1. Google Cloud Console Setup
+
+To connect production-grade Google Authentication to Maison Noir:
+
+1. Go to the [Google Cloud Console Credentials Page](https://console.cloud.google.com/apis/credentials).
+2. Click **+ Create Credentials** ➔ **OAuth client ID**.
+3. Select Application type: **Web application**.
+4. Set **Name**: `Maison Noir Web App`.
+5. Add **Authorized JavaScript origins**:
+   - **Local Development:**
+     - `http://localhost:8080`
+     - `http://localhost:5173`
+   - **Production:**
+     - `https://YOUR-DOMAIN.com` *(Replace with your actual production domain)*
+6. Add **Authorized redirect URIs**:
+   - `http://localhost:8080`
+   - `http://localhost:5173`
+   - `https://YOUR-DOMAIN.com`
+7. Click **Create** and copy your **Client ID** (e.g., `123456789-abc.apps.googleusercontent.com`).
+
+---
+
+### 2. Environment Variables Configuration
+
+Place your Google Client ID into the environment files:
+
+#### Backend (`backend/.env`):
+```env
+PORT=5001
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/maison_noir
+JWT_SECRET=maison_noir_super_secret_jwt_key_2026_luxury_brand
+JWT_EXPIRES_IN=7d
+CLIENT_URL=http://localhost:8080
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+```
+
+#### Frontend (`frontend/.env`):
+```env
+VITE_API_URL=http://localhost:5001/api
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+```
+
+---
+
+## MongoDB Schema & Account Linking Architecture
+
+### User Document Schema (`maison_noir.users`)
+```json
+{
+  "_id": "6a75f05144daef8083317d54",
+  "firstName": "Elena",
+  "lastName": "Vance",
+  "email": "elena.vance@maisonnoir.com",
+  "authProvider": "google",
+  "googleId": "109823749238472938471",
+  "emailVerified": true,
+  "avatar": "https://lh3.googleusercontent.com/a/...",
+  "role": "user",
+  "addresses": [],
+  "createdAt": "2026-08-07T14:48:49.914Z",
+  "updatedAt": "2026-08-07T14:48:49.914Z"
+}
+```
+
+### Account Linking Logic
+If a user registers an account via local email/password (`elena@maisonnoir.com`) and later authenticates with Google using the same verified email address, the backend automatically links the accounts:
+- Updates `googleId = googleSub`
+- Sets `authProvider = "both"`
+- Sets `emailVerified = true`
+- Preserves the original `_id` so that all cart items, saved wishlist items, order history, and addresses remain seamlessly linked to the single user record.
