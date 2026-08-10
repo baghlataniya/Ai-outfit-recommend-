@@ -420,10 +420,12 @@ function ProfileDashboardPage() {
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-xs font-medium tracking-tight truncate">{item.productName}</h4>
                                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                                  Size: {item.size} • Color: {item.color} • Qty: {item.quantity}
+                                  Size: {item.selectedSize || item.size} • Color: {item.selectedColor || item.color} • Qty: {item.quantity}
                                 </p>
                               </div>
-                              <span className="text-xs font-medium tabular-nums">{item.price}</span>
+                              <span className="text-xs font-medium tabular-nums">
+                                ₹{((item.priceAtPurchase || item.priceValue || 0) * item.quantity).toLocaleString("en-IN")}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -437,12 +439,13 @@ function ProfileDashboardPage() {
                         >
                           Buy Entire Order Again
                         </button>
-                        <button
-                          onClick={() => toast.success(`Downloading official tax invoice for Order #${selectedOrder.id}`)}
+                        <Link
+                          to="/orders/$id"
+                          params={{ id: selectedOrder.orderNumber || selectedOrder.id }}
                           className="label-xs border border-border px-6 py-3.5 hover:border-foreground transition-colors cursor-pointer"
                         >
-                          Download Invoice (PDF)
-                        </button>
+                          Full Order Page & Invoice
+                        </Link>
                       </div>
                     </div>
                   ) : (
@@ -450,17 +453,17 @@ function ProfileDashboardPage() {
                     <div className="space-y-4">
                       {orders.map((order) => (
                         <div
-                          key={order.id}
+                          key={order.id || order.orderNumber}
                           className="border border-border bg-background p-6 hover:border-foreground/40 transition-colors"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border">
                             <div>
-                              <p className="label-xs text-muted-foreground">Order #{order.id}</p>
+                              <p className="label-xs text-muted-foreground">Order #{order.orderNumber || order.id}</p>
                               <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
                             </div>
                             <div className="flex items-center gap-4">
                               <span className="label-xs bg-muted px-3 py-1">{order.status}</span>
-                              <span className="text-sm font-medium tabular-nums">${order.total.toLocaleString()}</span>
+                              <span className="text-sm font-medium tabular-nums">₹{order.total.toLocaleString("en-IN")}</span>
                             </div>
                           </div>
 
@@ -470,7 +473,7 @@ function ProfileDashboardPage() {
                                 <img src={item.image} alt="" className="h-12 w-10 object-cover bg-muted" />
                                 <div className="text-xs">
                                   <p className="font-medium">{item.productName}</p>
-                                  <p className="text-[10px] text-muted-foreground">{item.size} / {item.color}</p>
+                                  <p className="text-[10px] text-muted-foreground">{item.selectedSize || item.size} / {item.selectedColor || item.color}</p>
                                 </div>
                               </div>
                             ))}

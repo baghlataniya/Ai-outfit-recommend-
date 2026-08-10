@@ -169,14 +169,24 @@ export function Nav({ solid = false }: { solid?: boolean }) {
                       </Link>
 
                       <Link
-                        to="/profile"
-                        search={{ tab: "orders" }}
+                        to="/orders"
                         onClick={() => setAccountMenuOpen(false)}
                         className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors"
                       >
                         <Package className="h-3.5 w-3.5" />
                         <span>Order History</span>
                       </Link>
+
+                      {user?.role === "admin" && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setAccountMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-muted transition-colors font-semibold"
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      )}
 
                       <Link
                         to="/profile"

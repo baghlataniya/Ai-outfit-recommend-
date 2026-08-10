@@ -23,7 +23,11 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StylistRouteImport } from './routes/stylist'
 import { Route as SuccessRouteImport } from './routes/success'
 import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as CategorySlugRouteImport } from './routes/category/$slug'
+import { Route as OrderSuccessIdRouteImport } from './routes/order-success/$id'
+import { Route as OrdersIndexRouteImport } from './routes/orders/index'
+import { Route as OrdersIdRouteImport } from './routes/orders/$id'
 import { Route as ProductIdRouteImport } from './routes/product/$id'
 import { Route as StylistIndexRouteImport } from './routes/stylist/index'
 import { Route as StylistResultsRouteImport } from './routes/stylist/results'
@@ -98,9 +102,29 @@ const WishlistRoute = WishlistRouteImport.update({
   path: '/wishlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CategorySlugRoute = CategorySlugRouteImport.update({
   id: '/category/$slug',
   path: '/category/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderSuccessIdRoute = OrderSuccessIdRouteImport.update({
+  id: '/order-success/$id',
+  path: '/order-success/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersIndexRoute = OrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersIdRoute = OrdersIdRouteImport.update({
+  id: '/orders/$id',
+  path: '/orders/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductIdRoute = ProductIdRouteImport.update({
@@ -135,8 +159,12 @@ export interface FileRoutesByFullPath {
   '/success': typeof SuccessRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/order-success/$id': typeof OrderSuccessIdRoute
+  '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
   '/stylist/results': typeof StylistResultsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/orders/': typeof OrdersIndexRoute
   '/stylist/': typeof StylistIndexRoute
 }
 export interface FileRoutesByTo {
@@ -154,8 +182,12 @@ export interface FileRoutesByTo {
   '/success': typeof SuccessRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/order-success/$id': typeof OrderSuccessIdRoute
+  '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
   '/stylist/results': typeof StylistResultsRoute
+  '/admin': typeof AdminIndexRoute
+  '/orders': typeof OrdersIndexRoute
   '/stylist': typeof StylistIndexRoute
 }
 export interface FileRoutesById {
@@ -175,8 +207,12 @@ export interface FileRoutesById {
   '/success': typeof SuccessRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
+  '/order-success/$id': typeof OrderSuccessIdRoute
+  '/orders/$id': typeof OrdersIdRoute
   '/product/$id': typeof ProductIdRoute
   '/stylist/results': typeof StylistResultsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/orders/': typeof OrdersIndexRoute
   '/stylist/': typeof StylistIndexRoute
 }
 export interface FileRouteTypes {
@@ -197,8 +233,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/wishlist'
     | '/category/$slug'
+    | '/order-success/$id'
+    | '/orders/$id'
     | '/product/$id'
     | '/stylist/results'
+    | '/admin/'
+    | '/orders/'
     | '/stylist/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -216,8 +256,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/wishlist'
     | '/category/$slug'
+    | '/order-success/$id'
+    | '/orders/$id'
     | '/product/$id'
     | '/stylist/results'
+    | '/admin'
+    | '/orders'
     | '/stylist'
   id:
     | '__root__'
@@ -236,8 +280,12 @@ export interface FileRouteTypes {
     | '/success'
     | '/wishlist'
     | '/category/$slug'
+    | '/order-success/$id'
+    | '/orders/$id'
     | '/product/$id'
     | '/stylist/results'
+    | '/admin/'
+    | '/orders/'
     | '/stylist/'
   fileRoutesById: FileRoutesById
 }
@@ -257,7 +305,11 @@ export interface RootRouteChildren {
   SuccessRoute: typeof SuccessRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
+  OrderSuccessIdRoute: typeof OrderSuccessIdRoute
+  OrdersIdRoute: typeof OrdersIdRoute
   ProductIdRoute: typeof ProductIdRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  OrdersIndexRoute: typeof OrdersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -360,11 +412,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WishlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/category/$slug': {
       id: '/category/$slug'
       path: '/category/$slug'
       fullPath: '/category/$slug'
       preLoaderRoute: typeof CategorySlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-success/$id': {
+      id: '/order-success/$id'
+      path: '/order-success/$id'
+      fullPath: '/order-success/$id'
+      preLoaderRoute: typeof OrderSuccessIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders/': {
+      id: '/orders/'
+      path: '/orders'
+      fullPath: '/orders/'
+      preLoaderRoute: typeof OrdersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders/$id': {
+      id: '/orders/$id'
+      path: '/orders/$id'
+      fullPath: '/orders/$id'
+      preLoaderRoute: typeof OrdersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/product/$id': {
@@ -420,7 +500,11 @@ const rootRouteChildren: RootRouteChildren = {
   SuccessRoute: SuccessRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
+  OrderSuccessIdRoute: OrderSuccessIdRoute,
+  OrdersIdRoute: OrdersIdRoute,
   ProductIdRoute: ProductIdRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  OrdersIndexRoute: OrdersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

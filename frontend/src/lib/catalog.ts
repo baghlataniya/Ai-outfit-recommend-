@@ -47,6 +47,7 @@ export type Product = {
   aiMatch: number;
   isNew: boolean;
   inStock: boolean;
+  stock?: number;
   bestSeller?: boolean;
   description: string;
   addedIndex: number;

@@ -16,9 +16,10 @@ export const getProducts = async (req: Request, res: Response<ApiResponse>): Pro
       featured,
       newArrival,
       sort = "newest",
+      includeInactive,
     } = req.query;
 
-    const query: Record<string, any> = { isActive: true };
+    const query: Record<string, any> = includeInactive === "true" ? {} : { isActive: true };
 
     if (category) {
       query.category = { $regex: new RegExp(`^${(category as string).trim()}$`, "i") };
@@ -172,7 +173,34 @@ export const getProductBySlug = async (req: Request, res: Response<ApiResponse>)
 
 export const createProduct = async (req: AuthenticatedRequest, res: Response<ApiResponse>): Promise<void> => {
   try {
-    const productData = req.body;
+    const productData = { ...req.body };
+
+    if (!productData.name) {
+      res.status(400).json({ success: false, message: "Product name is required." });
+      return;
+    }
+
+    if (!productData.slug) {
+      productData.slug =
+        productData.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "") +
+        "-" +
+        Date.now().toString(36);
+    }
+
+    if (!productData.thumbnail && Array.isArray(productData.images) && productData.images.length > 0) {
+      productData.thumbnail = productData.images[0];
+    } else if (!productData.thumbnail) {
+      productData.thumbnail = "/assets/product-1.jpg";
+    }
+
+    if (!Array.isArray(productData.images) || productData.images.length === 0) {
+      productData.images = [productData.thumbnail];
+    }
+
     const product = new Product(productData);
     await product.save();
 
@@ -193,7 +221,18 @@ export const createProduct = async (req: AuthenticatedRequest, res: Response<Api
 export const updateProduct = async (req: AuthenticatedRequest, res: Response<ApiResponse>): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const product = await Product.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+    const updateData = { ...req.body };
+
+    if (updateData.name && !updateData.slug) {
+      updateData.slug =
+        updateData.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
+    }
+
+    const product = await Product.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 
     if (!product) {
       res.status(404).json({ success: false, message: "Product not found." });

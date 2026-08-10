@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Check, Heart, Plus, Share2 } from "lucide-react";
 
 import { ProductBadge } from "@/components/shop/ProductBadge";

@@ -1,200 +1,216 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
-import { products, type Product } from "@/lib/catalog";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { commerceApi, getAuthToken } from "@/lib/api";
 
 export type OrderItem = {
   productId: string;
   productName: string;
   image: string;
-  price: string;
-  priceValue: number;
-  size: string;
-  color: string;
+  priceAtPurchase: number;
+  selectedSize: string;
+  selectedColor: string;
   quantity: number;
 };
 
 export type OrderTrackingStep = {
   label: string;
-  date: string;
+  date?: string;
   completed: boolean;
 };
 
 export type Order = {
-  id: string;
+  id: string; // Mongo _id
+  orderNumber: string; // MN-2026-000001
   date: string;
-  status: "Delivered" | "In Transit" | "Processing" | "Returned";
+  createdAt: string;
+  paymentStatus: "pending" | "paid" | "failed" | "refunded";
+  orderStatus: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: string; // Capitalized or standard status for UI compatibility
   subtotal: number;
   tax: number;
   shipping: number;
   total: number;
   items: OrderItem[];
   shippingAddress: {
-    name: string;
-    street: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    address: string;
     city: string;
     state?: string;
-    zip: string;
+    postalCode?: string;
     country: string;
   };
-  paymentMethod: {
-    brand: string;
-    last4: string;
-  };
+  paymentMethod: string;
   trackingSteps: OrderTrackingStep[];
-  deliveredDate?: string;
-  trackingNumber?: string;
 };
 
-const DEFAULT_ORDERS: Order[] = [
-  {
-    id: "MN-89241",
-    date: "October 14, 2025",
-    status: "Delivered",
-    subtotal: 1770,
-    tax: 141,
-    shipping: 0,
-    total: 1911,
-    deliveredDate: "October 18, 2025",
-    trackingNumber: "EXP-908234-US",
-    items: [
-      {
-        productId: "atelier-coat",
-        productName: "Atelier Belted Coat",
-        image: products[0]?.image ?? "",
-        price: "$1,290",
-        priceValue: 1290,
-        size: "M",
-        color: "Black",
-        quantity: 1,
-      },
-      {
-        productId: "cloud-knit",
-        productName: "Cloud Cashmere Knit",
-        image: products[1]?.image ?? "",
-        price: "$480",
-        priceValue: 480,
-        size: "S",
-        color: "Soft White",
-        quantity: 1,
-      },
-    ],
-    shippingAddress: {
-      name: "Elena Vance",
-      street: "740 Park Avenue, Apt 14B",
-      city: "New York",
-      state: "NY",
-      zip: "10021",
-      country: "United States",
-    },
-    paymentMethod: {
-      brand: "American Express",
-      last4: "8902",
-    },
-    trackingSteps: [
-      { label: "Order Placed", date: "Oct 14, 2025 • 10:24 AM", completed: true },
-      { label: "Quality Inspection & Atelier Packaging", date: "Oct 14, 2025 • 02:15 PM", completed: true },
-      { label: "Dispatched from Paris Dispatch", date: "Oct 15, 2025 • 09:00 AM", completed: true },
-      { label: "Customs Clearance Verified", date: "Oct 16, 2025 • 11:30 AM", completed: true },
-      { label: "Delivered to Residence", date: "Oct 18, 2025 • 03:45 PM", completed: true },
-    ],
-  },
-  {
-    id: "MN-74120",
-    date: "January 22, 2026",
-    status: "In Transit",
-    subtotal: 1540,
-    tax: 123,
-    shipping: 0,
-    total: 1663,
-    trackingNumber: "EXP-881290-US",
-    items: [
-      {
-        productId: "monolith-trench",
-        productName: "Monolith Trench",
-        image: products[3]?.image ?? "",
-        price: "$1,540",
-        priceValue: 1540,
-        size: "L",
-        color: "Black",
-        quantity: 1,
-      },
-    ],
-    shippingAddress: {
-      name: "Elena Vance",
-      street: "740 Park Avenue, Apt 14B",
-      city: "New York",
-      state: "NY",
-      zip: "10021",
-      country: "United States",
-    },
-    paymentMethod: {
-      brand: "Visa Black Card",
-      last4: "4111",
-    },
-    trackingSteps: [
-      { label: "Order Placed", date: "Jan 22, 2026 • 04:12 PM", completed: true },
-      { label: "Atelier Packaging Complete", date: "Jan 23, 2026 • 11:00 AM", completed: true },
-      { label: "In Transit via Express Courier", date: "Jan 24, 2026 • 08:30 AM", completed: true },
-      { label: "Out for Delivery", date: "Estimated Today", completed: false },
-      { label: "Delivered", date: "Pending", completed: false },
-    ],
-  },
-];
+export const mapBackendOrder = (o: any): Order => {
+  const status = o.orderStatus || "confirmed";
 
-const ORDERS_KEY = "maison-noir-orders";
+  const isPending = status === "pending";
+  const isConfirmed = ["confirmed", "processing", "shipped", "delivered"].includes(status);
+  const isProcessing = ["processing", "shipped", "delivered"].includes(status);
+  const isShipped = ["shipped", "delivered"].includes(status);
+  const isDelivered = status === "delivered";
+
+  const dateStr = o.createdAt
+    ? new Date(o.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "Recently";
+
+  return {
+    id: o._id ? o._id.toString() : o.id || o.orderNumber,
+    orderNumber: o.orderNumber || o._id || "MN-2026-000001",
+    date: dateStr,
+    createdAt: o.createdAt || new Date().toISOString(),
+    paymentStatus: o.paymentStatus || "paid",
+    orderStatus: status,
+    status: status.charAt(0).toUpperCase() + status.slice(1),
+    subtotal: o.subtotal || 0,
+    shipping: o.shipping || 0,
+    tax: o.tax || 0,
+    total: o.total || 0,
+    items: (o.items || []).map((item: any) => ({
+      productId: item.productId ? (item.productId._id ? item.productId._id.toString() : item.productId.toString()) : "",
+      productName: item.productName || item.name || "Maison Product",
+      image: item.image || "/assets/product-1.jpg",
+      priceAtPurchase: typeof item.priceAtPurchase === "number" ? item.priceAtPurchase : item.price || 0,
+      selectedSize: item.selectedSize || item.size || "M",
+      selectedColor: item.selectedColor || item.color || "Black",
+      quantity: item.quantity || 1,
+    })),
+    shippingAddress: {
+      firstName: o.shippingAddress?.firstName || "",
+      lastName: o.shippingAddress?.lastName || "",
+      email: o.shippingAddress?.email || "",
+      phone: o.shippingAddress?.phone || "",
+      address: o.shippingAddress?.address || "",
+      city: o.shippingAddress?.city || "",
+      state: o.shippingAddress?.state || "",
+      postalCode: o.shippingAddress?.postalCode || "",
+      country: o.shippingAddress?.country || "India",
+    },
+    paymentMethod: o.paymentMethod || "Credit Card",
+    trackingSteps: [
+      { label: "Order Placed", date: dateStr, completed: true },
+      { label: "Confirmed", completed: isConfirmed && !isPending },
+      { label: "Processing", completed: isProcessing },
+      { label: "Shipped", completed: isShipped },
+      { label: "Delivered", completed: isDelivered },
+    ],
+  };
+};
 
 interface OrderContextType {
   orders: Order[];
-  getOrder: (id: string) => Order | undefined;
-  addOrder: (order: Omit<Order, "id">) => Order;
+  loading: boolean;
+  error: string | null;
+  getOrder: (idOrOrderNumber: string) => Promise<Order | undefined>;
+  addOrder: (orderPayload: {
+    items: Array<{ productId: string; quantity: number; selectedSize?: string; selectedColor?: string }>;
+    shippingAddress: any;
+    paymentMethod?: string;
+  }) => Promise<{ success: boolean; order?: Order; message?: string }>;
+  fetchOrders: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>(DEFAULT_ORDERS);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(ORDERS_KEY);
-        if (raw) {
-          setOrders(JSON.parse(raw));
-        }
-      } catch (e) {
-        console.error("Error loading order store:", e);
+  const fetchOrders = useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await commerceApi.getOrders();
+      if (res.success && res.data?.orders) {
+        const mapped = res.data.orders.map(mapBackendOrder);
+        setOrders(mapped);
+      } else {
+        setOrders([]);
       }
+    } catch (err) {
+      console.error("Failed to load orders from API:", err);
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const saveOrders = (list: Order[]) => {
-    setOrders(list);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ORDERS_KEY, JSON.stringify(list));
-    }
-  };
+  useEffect(() => {
+    fetchOrders();
 
-  const getOrder = (id: string) => {
-    return orders.find((o) => o.id.toLowerCase() === id.toLowerCase());
-  };
-
-  const addOrder = (newOrderData: Omit<Order, "id">) => {
-    const id = `MN-${Math.floor(10000 + Math.random() * 90000)}`;
-    const newOrder: Order = {
-      ...newOrderData,
-      id,
+    const handleAuthChange = () => {
+      fetchOrders();
     };
-    const next = [newOrder, ...orders];
-    saveOrders(next);
-    return newOrder;
+
+    window.addEventListener("user-auth-changed", handleAuthChange);
+    return () => window.removeEventListener("user-auth-changed", handleAuthChange);
+  }, [fetchOrders]);
+
+  const getOrder = useCallback(
+    async (idOrOrderNumber: string): Promise<Order | undefined> => {
+      if (!idOrOrderNumber) return undefined;
+      const target = orders.find(
+        (o) =>
+          o.id.toLowerCase() === idOrOrderNumber.toLowerCase() ||
+          o.orderNumber.toLowerCase() === idOrOrderNumber.toLowerCase()
+      );
+      if (target) return target;
+
+      // If not in state, fetch directly from API
+      try {
+        const res = await commerceApi.getOrder(idOrOrderNumber);
+        if (res.success && res.data?.order) {
+          const mapped = mapBackendOrder(res.data.order);
+          return mapped;
+        }
+      } catch (err) {
+        console.error("Error fetching order detail from API:", err);
+      }
+      return undefined;
+    },
+    [orders]
+  );
+
+  const addOrder = async (orderPayload: {
+    items: Array<{ productId: string; quantity: number; selectedSize?: string; selectedColor?: string }>;
+    shippingAddress: any;
+    paymentMethod?: string;
+  }): Promise<{ success: boolean; order?: Order; message?: string }> => {
+    try {
+      const res = await commerceApi.createOrder(orderPayload);
+      if (res.success && res.data?.order) {
+        const mapped = mapBackendOrder(res.data.order);
+        setOrders((prev) => [mapped, ...prev]);
+        return { success: true, order: mapped, message: res.message };
+      }
+      return { success: false, message: res.message || "Failed to create order." };
+    } catch (err) {
+      return { success: false, message: (err as Error).message || "Error connecting to server." };
+    }
   };
 
   const value = useMemo(
     () => ({
       orders,
+      loading,
+      error,
       getOrder,
       addOrder,
+      fetchOrders,
     }),
-    [orders]
+    [orders, loading, error, getOrder, fetchOrders]
   );
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;

@@ -36,6 +36,8 @@ const mapBackendProduct = (p: any): Product => {
   const sizeList = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : (matchInCatalog?.sizes || ["One Size"]);
   const colorList = Array.isArray(p.colors) && p.colors.length > 0 ? p.colors : (matchInCatalog?.colors || ["Black"]);
 
+  const stockVal = typeof p.stock === "number" ? p.stock : 10;
+
   return {
     id: p._id ? p._id.toString() : p.slug || p.id,
     name: p.name || matchInCatalog?.name || "Maison Product",
@@ -53,16 +55,17 @@ const mapBackendProduct = (p: any): Product => {
     color: colorList[0],
     brand: p.brand || matchInCatalog?.brand || "Maison Noir",
     sizes: sizeList,
-    sizeVariants: sizeList.map((value: string, idx: number) => ({
+    sizeVariants: sizeList.map((value: string) => ({
       value,
-      stock: p.stock ? Math.max(1, Math.floor(p.stock / sizeList.length)) : 5,
+      stock: p.variants?.find((v: any) => v.size === value)?.stock ?? Math.max(0, Math.floor(stockVal / sizeList.length)),
     })),
     colors: colorList,
     rating: p.rating || matchInCatalog?.rating || 4.8,
     reviews: p.reviewCount || matchInCatalog?.reviews || 45,
     aiMatch: p.aiMatch || matchInCatalog?.aiMatch || 90,
     isNew: !!p.isNew,
-    inStock: p.stock > 0,
+    inStock: stockVal > 0,
+    stock: stockVal,
     bestSeller: !!p.isFeatured,
     description: p.description || matchInCatalog?.description || "",
     addedIndex: 1,

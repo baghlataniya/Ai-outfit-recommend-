@@ -94,18 +94,19 @@ export const api = {
     request<T>(endpoint, { method: "DELETE", headers }),
 };
 
+// Helper for building query strings
+const buildQueryString = (params?: Record<string, any>) => {
+  if (!params) return "";
+  const filtered = Object.entries(params)
+    .filter(([_, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return filtered.length > 0 ? `?${filtered.join("&")}` : "";
+};
+
 // Specialized Commerce API Helpers
 export const commerceApi = {
-  getProducts: (params?: Record<string, any>) => {
-    const queryString = params
-      ? "?" +
-        Object.entries(params)
-          .filter(([_, v]) => v !== undefined && v !== null && v !== "")
-          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-          .join("&")
-      : "";
-    return api.get<{ products: any[]; pagination: any }>(`/products${queryString}`);
-  },
+  getProducts: (params?: Record<string, any>) =>
+    api.get<{ products: any[]; pagination: any }>(`/products${buildQueryString(params)}`),
 
   getProduct: (idOrSlug: string) => api.get<{ product: any }>(`/products/${idOrSlug}`),
 
@@ -124,6 +125,43 @@ export const commerceApi = {
 
   toggleWishlist: (productId: string) =>
     api.post<{ productIds: string[]; products: any[] }>("/wishlist/toggle", { productId }),
+
+  // Order Endpoints
+  createOrder: (orderData: {
+    items: Array<{ productId: string; quantity: number; selectedSize?: string; selectedColor?: string }>;
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      state?: string;
+      postalCode?: string;
+      country: string;
+    };
+    paymentMethod?: string;
+  }) => api.post<{ order: any }>("/orders", orderData),
+
+  getOrders: () => api.get<{ orders: any[] }>("/orders"),
+
+  getOrder: (id: string) => api.get<{ order: any }>(`/orders/${id}`),
+
+  // Admin Endpoints
+  adminGetOrders: (params?: Record<string, any>) =>
+    api.get<{ orders: any[]; pagination: any }>(`/admin/orders${buildQueryString(params)}`),
+
+  adminUpdateOrderStatus: (
+    id: string,
+    status: { orderStatus?: string; paymentStatus?: string }
+  ) => api.patch<{ order: any }>(`/admin/orders/${id}/status`, status),
+
+  adminCreateProduct: (productData: any) => api.post<{ product: any }>("/products", productData),
+
+  adminUpdateProduct: (id: string, productData: any) =>
+    api.patch<{ product: any }>(`/products/${id}`, productData),
+
+  adminDeleteProduct: (id: string) => api.delete<{ message: string }>(`/products/${id}`),
 
   loginGoogle: (credential: string) =>
     api.post<{ user: any; token: string }>("/auth/google", { credential }),

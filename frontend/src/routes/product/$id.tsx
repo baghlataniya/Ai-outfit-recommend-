@@ -456,11 +456,12 @@ function ProductDetail({ product }: { product: Product }) {
                   onChange={setSize}
                 />
                 {size && (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground font-medium">
                     {(() => {
                       const variant = sizeVariants.find((sv) => sv.value === size);
-                      if (!variant || variant.stock === 0) return "Out of stock in selected size.";
-                      if (variant.stock <= 3) return `Low stock — only ${variant.stock} left in ${size}.`;
+                      const currentStock = variant?.stock ?? product?.stock ?? 0;
+                      if (currentStock === 0) return <span className="text-red-500 font-semibold tracking-wider uppercase">SOLD OUT</span>;
+                      if (currentStock <= 3) return <span className="text-amber-600 font-medium">Only {currentStock} left</span>;
                       return `In stock — Ships within 24 hours.`;
                     })()}
                   </p>
@@ -473,6 +474,10 @@ function ProductDetail({ product }: { product: Product }) {
                   value={quantity}
                   onChange={setQuantity}
                   min={1}
+                  max={(() => {
+                    const variant = sizeVariants.find((sv) => sv.value === size);
+                    return variant?.stock ?? product?.stock ?? 99;
+                  })()}
                 />
               </div>
 
