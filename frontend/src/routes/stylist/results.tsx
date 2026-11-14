@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, RotateCcw, Share2, Download } from "lucide-react";
+import { ArrowRight, RotateCcw, Share2, Download, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Nav } from "@/components/site/Nav";
@@ -13,6 +13,7 @@ import { products, type Product } from "@/lib/catalog";
 import { useCartStore } from "@/hooks/useCommerce";
 import { useSavedOutfitsStore } from "@/hooks/useSavedOutfitsStore";
 import { QuickViewModal } from "@/components/shop/QuickViewModal";
+import { commerceApi } from "@/lib/api";
 
 const lazySectionStyle = { contentVisibility: "auto", containIntrinsicSize: "1px 1100px" } as const;
 
@@ -42,6 +43,8 @@ type Outfit = {
   totalValue: number;
   image: string;
   products: OutfitSlot[];
+  aiExplanation?: string;
+  styleHighlights?: string[];
 };
 
 export const Route = createFileRoute("/stylist/results")({
@@ -254,8 +257,9 @@ function ResultsPage() {
   const { addToCart } = useCartStore();
   const [brief, setBrief] = useState<Brief>({});
   const [refreshSeed, setRefreshSeed] = useState(0);
-  const [savedOutfits, setSavedOutfits] = useState<string[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiSource, setAiSource] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -264,19 +268,81 @@ function ResultsPage() {
   }, []);
 
   useEffect(() => {
-    if (Object.keys(brief).length > 0 || refreshSeed > 0) {
-      setOutfits(buildOutfits(brief, refreshSeed));
-    }
-  }, [brief, refreshSeed]);
+    let active = true;
+    const loadCurations = async () => {
+      setLoadingAi(true);
+      try {
+        const res = await commerceApi.getStylistRecommendations({
+          ...brief,
+          seed: refreshSeed,
+        });
+        if (active && res.success && Array.isArray(res.data?.outfits) && res.data.outfits.length > 0) {
+          const mapped: Outfit[] = res.data.outfits.map((o: any) => ({
+            id: o.id || o._id,
+            title: o.title || o.outfitName,
+            occasion: o.occasion || "Formal",
+            weather: o.weather || "All Season",
+            match: o.match || o.aiScore || 95,
+            total: o.total || `$${(o.totalValue || 0).toLocaleString("en-US")}`,
+            totalValue: o.totalValue || 0,
+            image: o.image || o.heroImage,
+            aiExplanation: o.aiExplanation,
+            styleHighlights: o.styleHighlights,
+            products: o.products.map((p: any) => {
+              const priceVal = typeof p.product?.price === "number" ? p.product.price : 500;
+              return {
+                slot: p.slot || "Top",
+                product: {
+                  id: p.product?._id ? p.product._id.toString() : p.product?.slug || p.product?.id || "prod_1",
+                  name: p.product?.name || "Maison Piece",
+                  category: p.product?.category || "Outerwear",
+                  price: `$${priceVal.toLocaleString("en-US")}`,
+                  priceValue: priceVal,
+                  image: p.product?.images?.[0] || p.product?.thumbnail || "/assets/product-1.jpg",
+                  hoverImage: p.product?.images?.[1] || p.product?.images?.[0] || "/assets/product-1.jpg",
+                  gallery: p.product?.images || ["/assets/product-1.jpg"],
+                  gender: p.product?.gender || "Unisex",
+                  occasion: p.product?.occasion || "Formal",
+                  style: p.product?.style || "Minimal",
+                  season: p.product?.season || "All Season",
+                  color: p.product?.colors?.[0] || "Black",
+                  brand: p.product?.brand || "Maison Noir",
+                  sizes: p.product?.sizes || ["S", "M", "L"],
+                  sizeVariants: (p.product?.sizes || ["S", "M", "L"]).map((v: string) => ({ value: v, stock: 5 })),
+                  colors: p.product?.colors || ["Black"],
+                  rating: p.product?.rating || 4.8,
+                  reviews: p.product?.reviewCount || 45,
+                  aiMatch: 95,
+                  isNew: !!p.product?.isNew,
+                  inStock: true,
+                  description: p.product?.description || "",
+                  addedIndex: 1,
+                },
+              };
+            }),
+          }));
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      setSavedOutfits(JSON.parse(window.localStorage.getItem("maison-noir-saved-outfits") ?? "[]"));
-    } catch {
-      setSavedOutfits([]);
-    }
-  }, []);
+          setOutfits(mapped);
+          setAiSource(res.data.generatedBy);
+          setLoadingAi(false);
+          return;
+        }
+      } catch (err) {
+        console.warn("Stylist API call failed, using local builder:", err);
+      }
+
+      if (active) {
+        setOutfits(buildOutfits(brief, refreshSeed));
+        setLoadingAi(false);
+      }
+    };
+
+    loadCurations();
+
+    return () => {
+      active = false;
+    };
+  }, [brief, refreshSeed]);
 
   const insights = useMemo(() => {
     const styleName = brief.style ? brief.style.toLowerCase() : "minimalist";
@@ -323,9 +389,10 @@ function ResultsPage() {
         style: brief.style || "Minimalist",
         aiMatch: outfit.match,
         heroImage: outfit.image,
+        aiExplanation: outfit.aiExplanation,
         items: outfit.products.map((p) => p.product),
       });
-      toast.success(`"${outfit.title}" saved to your profile.`);
+      toast.success(`"${outfit.title}" saved to your private archive.`);
     }
   };
 
@@ -478,9 +545,20 @@ function ResultsPage() {
       ) : (
         <>
           <section className="edge py-10 md:py-14" style={lazySectionStyle}>
-            <div className="mb-8 flex items-end justify-between gap-4">
+            <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <p className="eyebrow mb-3">Generated Outfits</p>
+                <div className="flex items-center gap-2 mb-3">
+                  <p className="eyebrow">AI Stylist Curation</p>
+                  {aiSource === "gemini-ai" ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] uppercase tracking-wider bg-foreground/10 text-foreground border border-foreground/20 font-medium">
+                      <Sparkles className="h-2.5 w-2.5" /> Powered by Gemini
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] uppercase tracking-wider bg-foreground/5 text-muted-foreground border border-border">
+                      Atelier Architecture
+                    </span>
+                  )}
+                </div>
                 <h2 className="display-sm">Complete outfits built from the brief.</h2>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -489,13 +567,26 @@ function ResultsPage() {
                 </Link>
                 <button
                   onClick={() => setRefreshSeed((current) => current + 1)}
-                  className="label-xs flex items-center gap-2 border border-border px-4 py-3 transition-transform duration-200 ease-out hover:scale-[1.03]"
+                  disabled={loadingAi}
+                  className="label-xs flex items-center gap-2 border border-border px-4 py-3 transition-transform duration-200 ease-out hover:scale-[1.03] disabled:opacity-50"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.2} />
-                  Generate Again
+                  {loadingAi ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.2} />
+                  )}
+                  <span>{loadingAi ? "Curating..." : "Generate Again"}</span>
                 </button>
               </div>
             </div>
+
+            {loadingAi && (
+              <div className="border border-border p-8 mb-8 text-center bg-muted/20">
+                <Loader2 className="h-5 w-5 animate-spin mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm font-medium tracking-tight">Consulting Atelier AI Stylist...</p>
+                <p className="text-xs text-muted-foreground mt-1">Analyzing proportions, drape, and tonal compatibility.</p>
+              </div>
+            )}
 
             <div className="grid gap-12">
               {outfits.map((outfit) => (
@@ -512,8 +603,15 @@ function ResultsPage() {
                     onAddOutfit={() => handleAddOutfitToCart(outfit)}
                     onToggleSaved={() => handleSaveOutfit(outfit)}
                     onShare={handleShare}
-                    saved={savedOutfits.includes(outfit.id)}
+                    saved={isSaved(outfit.id)}
                   />
+
+                  {outfit.aiExplanation && (
+                    <div className="mt-5 border-l-2 border-foreground/40 pl-4 py-1.5 bg-foreground/3">
+                      <p className="eyebrow mb-1 text-[10px] text-muted-foreground">Atelier Stylist Rationale</p>
+                      <p className="text-xs italic leading-relaxed text-foreground/80">{outfit.aiExplanation}</p>
+                    </div>
+                  )}
 
                   <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                     {outfit.products.map((slot) => (
@@ -542,7 +640,7 @@ function ResultsPage() {
                       onClick={() => handleSaveOutfit(outfit)}
                       className="label-xs border border-border px-4 py-3 transition-transform duration-200 ease-out hover:scale-[1.03]"
                     >
-                      {savedOutfits.includes(outfit.id) ? "Saved Outfit" : "Save Outfit"}
+                      {isSaved(outfit.id) ? "Saved in Archive" : "Save Outfit"}
                     </button>
                     <button
                       onClick={() => handleAddOutfitToCart(outfit)}

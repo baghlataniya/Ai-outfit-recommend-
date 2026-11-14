@@ -183,4 +183,14 @@ export const commerceApi = {
 
   loginGoogle: (credential: string) =>
     api.post<{ user: any; token: string }>("/auth/google", { credential }),
+
+  // AI Stylist Endpoints
+  getStylistRecommendations: (brief: any) =>
+    api.post<{ brief: any; outfits: any[]; generatedBy: string }>("/stylist/recommend", brief),
+
+  saveOutfit: (outfitData: any) => api.post<{ outfit: any }>("/stylist/saved", outfitData),
+
+  getSavedOutfits: () => api.get<{ outfits: any[] }>("/stylist/saved"),
+
+  deleteSavedOutfit: (id: string) => api.delete<{ message: string }>(`/stylist/saved/${id}`),
 };
