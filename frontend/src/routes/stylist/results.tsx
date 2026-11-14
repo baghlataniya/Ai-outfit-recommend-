@@ -255,7 +255,7 @@ function buildOutfits(brief: Brief, seed = 0): Outfit[] {
 
 function ResultsPage() {
   const { addToCart } = useCartStore();
-  const [brief, setBrief] = useState<Brief>({});
+  const [brief, setBrief] = useState<Brief>(() => readBrief());
   const [refreshSeed, setRefreshSeed] = useState(0);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [loadingAi, setLoadingAi] = useState(false);
