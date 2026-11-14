@@ -178,63 +178,79 @@ interface WishlistContextType {
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
 
-const WISHLIST_KEY = "maison-noir-wishlist";
+const GUEST_WISHLIST_KEY = "maison-noir-guest-wishlist";
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const { products } = useProductStore();
 
-  const syncWithBackend = useCallback(async (currentLocal: string[]) => {
+  const loadUserWishlist = useCallback(async () => {
     const token = getAuthToken();
-    if (!token) return;
-
-    try {
-      const res = await commerceApi.syncWishlist(currentLocal);
-
-      if (res.success && res.data?.productIds) {
-        setWishlist(res.data.productIds);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(WISHLIST_KEY, JSON.stringify(res.data.productIds));
+    if (!token) {
+      if (typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(GUEST_WISHLIST_KEY);
+          setWishlist(raw ? JSON.parse(raw) : []);
+        } catch {
+          setWishlist([]);
         }
       }
+      return;
+    }
+
+    try {
+      let guestList: string[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const raw = window.localStorage.getItem(GUEST_WISHLIST_KEY);
+          if (raw) guestList = JSON.parse(raw);
+        } catch {
+          guestList = [];
+        }
+      }
+
+      if (guestList.length > 0) {
+        const res = await commerceApi.syncWishlist(guestList);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(GUEST_WISHLIST_KEY);
+          window.localStorage.removeItem("maison-noir-wishlist");
+        }
+        if (res.success && res.data?.productIds) {
+          setWishlist(res.data.productIds);
+          return;
+        }
+      }
+
+      const res = await commerceApi.getWishlist();
+      if (res.success && res.data?.productIds) {
+        setWishlist(res.data.productIds);
+      } else {
+        setWishlist([]);
+      }
     } catch (err) {
-      console.error("Failed to sync wishlist with backend:", err);
+      console.error("Failed to load wishlist:", err);
     }
   }, []);
 
   useEffect(() => {
-    let initialList: string[] = [];
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(WISHLIST_KEY);
-        if (raw) {
-          initialList = JSON.parse(raw);
-          setWishlist(initialList);
-        }
-      } catch (e) {
-        console.error("Error loading wishlist state:", e);
-      }
-    }
-
-    if (getAuthToken()) {
-      syncWithBackend(initialList);
-    }
+    loadUserWishlist();
 
     const handleAuthChange = () => {
       const token = getAuthToken();
       if (token) {
-        syncWithBackend(wishlist);
+        loadUserWishlist();
       } else {
         setWishlist([]);
         if (typeof window !== "undefined") {
-          window.localStorage.removeItem(WISHLIST_KEY);
+          window.localStorage.removeItem(GUEST_WISHLIST_KEY);
+          window.localStorage.removeItem("maison-noir-wishlist");
         }
       }
     };
 
     window.addEventListener("user-auth-changed", handleAuthChange);
     return () => window.removeEventListener("user-auth-changed", handleAuthChange);
-  }, [syncWithBackend]);
+  }, [loadUserWishlist]);
 
   const toggleWishlist = async (productId: string) => {
     const next = wishlist.includes(productId)
@@ -242,21 +258,23 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       : [...wishlist, productId];
     setWishlist(next);
 
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
-      window.dispatchEvent(new Event("wishlist-updated"));
-    }
-
     if (getAuthToken()) {
       try {
         const res = await commerceApi.toggleWishlist(productId);
         if (res.success && res.data?.productIds) {
           setWishlist(res.data.productIds);
-          window.localStorage.setItem(WISHLIST_KEY, JSON.stringify(res.data.productIds));
         }
       } catch (err) {
         console.error("Failed to toggle wishlist item on backend:", err);
       }
+    } else {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify(next));
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("wishlist-updated"));
     }
   };
 
@@ -316,7 +334,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_KEY = "maison-noir-cart";
+const GUEST_CART_KEY = "maison-noir-guest-cart";
 const LATER_KEY = "maison-noir-save-later";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -324,92 +342,116 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [savedLater, setSavedLater] = useState<Product[]>([]);
   const { products } = useProductStore();
 
-  const syncCartWithBackend = useCallback(async (currentLocal: CartItem[]) => {
+  const getGuestCartItems = (): CartItem[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(GUEST_CART_KEY);
+      if (raw) {
+        const parsed: CartItem[] = JSON.parse(raw);
+        return parsed.map((item) => (item.lineId ? item : { ...item, lineId: genLineId() }));
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  };
+
+  const loadUserCart = useCallback(async () => {
     const token = getAuthToken();
-    if (!token) return;
+    if (!token) {
+      setCart(getGuestCartItems());
+      return;
+    }
 
     try {
-      const formattedItems = currentLocal.map((item) => {
-        const prod = products.find((p) => p.id === item.productId) || catalogProducts.find((p) => p.id === item.productId);
-        return {
-          productId: item.productId,
-          quantity: item.quantity,
-          selectedSize: item.size || "M",
-          selectedColor: item.color || "Black",
-          price: prod?.priceValue || 100,
-          image: prod?.image || "",
-        };
-      });
+      const guestItems = getGuestCartItems();
+      if (guestItems.length > 0) {
+        const formattedItems = guestItems.map((item) => {
+          const prod = products.find((p) => p.id === item.productId) || catalogProducts.find((p) => p.id === item.productId);
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            selectedSize: item.size || "M",
+            selectedColor: item.color || "Black",
+            price: prod?.priceValue || 100,
+            image: prod?.image || "",
+          };
+        });
 
-      const res = await commerceApi.syncCart(formattedItems);
+        const res = await commerceApi.syncCart(formattedItems);
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(GUEST_CART_KEY);
+          window.localStorage.removeItem("maison-noir-cart");
+        }
+
+        if (res.success && res.data?.items) {
+          const syncedCart: CartItem[] = res.data.items.map((bItem: any) => ({
+            lineId: bItem._id || genLineId(),
+            productId: bItem.productId ? bItem.productId.toString() : bItem.slug,
+            quantity: bItem.quantity,
+            size: bItem.selectedSize,
+            color: bItem.selectedColor,
+          }));
+          setCart(syncedCart);
+          return;
+        }
+      }
+
+      const res = await commerceApi.getCart();
       if (res.success && res.data?.items) {
-        const syncedCart: CartItem[] = res.data.items.map((bItem: any) => ({
+        const fetchedCart: CartItem[] = res.data.items.map((bItem: any) => ({
           lineId: bItem._id || genLineId(),
           productId: bItem.productId ? bItem.productId.toString() : bItem.slug,
           quantity: bItem.quantity,
           size: bItem.selectedSize,
           color: bItem.selectedColor,
         }));
-
-        setCart(syncedCart);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(CART_KEY, JSON.stringify(syncedCart));
-        }
+        setCart(fetchedCart);
+      } else {
+        setCart([]);
       }
     } catch (err) {
-      console.error("Failed to sync cart with backend:", err);
+      console.error("Failed to load user cart from backend:", err);
     }
   }, [products]);
 
   useEffect(() => {
-    let initialCart: CartItem[] = [];
     if (typeof window !== "undefined") {
       try {
-        const rawCart = window.localStorage.getItem(CART_KEY);
-        if (rawCart) {
-          const parsed: CartItem[] = JSON.parse(rawCart);
-          initialCart = parsed.map((item) =>
-            item.lineId ? item : { ...item, lineId: genLineId() }
-          );
-          setCart(initialCart);
-        }
         const rawLater = window.localStorage.getItem(LATER_KEY);
         if (rawLater) {
           const ids = JSON.parse(rawLater) as string[];
-          const mapped = ids.map(id => products.find(p => p.id === id) || catalogProducts.find(p => p.id === id)).filter(Boolean) as Product[];
+          const mapped = ids
+            .map((id) => products.find((p) => p.id === id) || catalogProducts.find((p) => p.id === id))
+            .filter(Boolean) as Product[];
           setSavedLater(mapped);
         }
       } catch (e) {
-        console.error("Error loading cart/saved later state:", e);
+        console.error("Error loading saved later state:", e);
       }
     }
 
-    if (getAuthToken()) {
-      syncCartWithBackend(initialCart);
-    }
+    loadUserCart();
 
     const handleAuthChange = () => {
       const token = getAuthToken();
       if (token) {
-        syncCartWithBackend(cart);
+        loadUserCart();
       } else {
         setCart([]);
         if (typeof window !== "undefined") {
-          window.localStorage.removeItem(CART_KEY);
+          window.localStorage.removeItem(GUEST_CART_KEY);
+          window.localStorage.removeItem("maison-noir-cart");
         }
       }
     };
 
     window.addEventListener("user-auth-changed", handleAuthChange);
     return () => window.removeEventListener("user-auth-changed", handleAuthChange);
-  }, [syncCartWithBackend]);
+  }, [loadUserCart]);
 
   const saveCartState = (nextCart: CartItem[]) => {
     setCart(nextCart);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(CART_KEY, JSON.stringify(nextCart));
-      window.dispatchEvent(new Event("cart-updated"));
-    }
 
     if (getAuthToken()) {
       const formattedItems = nextCart.map((item) => {
@@ -424,6 +466,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         };
       });
       commerceApi.updateCart(formattedItems).catch((e) => console.error("Error updating backend cart:", e));
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(GUEST_CART_KEY);
+        window.localStorage.removeItem("maison-noir-cart");
+      }
+    } else {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextCart));
+      }
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("cart-updated"));
     }
   };
 

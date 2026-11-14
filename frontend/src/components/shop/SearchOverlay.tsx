@@ -89,12 +89,13 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[980] overflow-y-auto bg-background/95 backdrop-blur-2xl"
+          data-lenis-prevent="true"
+          className="fixed inset-0 z-[980] h-full w-full overflow-y-auto overscroll-contain bg-background/95 backdrop-blur-2xl"
           role="dialog"
           aria-modal="true"
           aria-label="Search Archive"
         >
-          <div className="edge py-7">
+          <div className="edge py-7 pb-24">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <span className="label-xs tracking-[0.4em]">MAISON&nbsp;NOIR</span>
               <button onClick={onClose} aria-label="Close search" className="label-xs flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity">

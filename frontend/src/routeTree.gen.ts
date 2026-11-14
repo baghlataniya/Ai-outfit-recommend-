@@ -18,10 +18,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StylistRouteImport } from './routes/stylist'
 import { Route as SuccessRouteImport } from './routes/success'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as CategorySlugRouteImport } from './routes/category/$slug'
@@ -77,6 +79,11 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -95,6 +102,11 @@ const StylistRoute = StylistRouteImport.update({
 const SuccessRoute = SuccessRouteImport.update({
   id: '/success',
   path: '/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WishlistRoute = WishlistRouteImport.update({
@@ -153,10 +165,12 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/shop': typeof ShopRoute
   '/stylist': typeof StylistRouteWithChildren
   '/success': typeof SuccessRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/order-success/$id': typeof OrderSuccessIdRoute
@@ -177,9 +191,11 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/shop': typeof ShopRoute
   '/success': typeof SuccessRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/order-success/$id': typeof OrderSuccessIdRoute
@@ -201,10 +217,12 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/shop': typeof ShopRoute
   '/stylist': typeof StylistRouteWithChildren
   '/success': typeof SuccessRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/wishlist': typeof WishlistRoute
   '/category/$slug': typeof CategorySlugRoute
   '/order-success/$id': typeof OrderSuccessIdRoute
@@ -227,10 +245,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/reset-password'
     | '/search'
     | '/shop'
     | '/stylist'
     | '/success'
+    | '/verify-email'
     | '/wishlist'
     | '/category/$slug'
     | '/order-success/$id'
@@ -251,9 +271,11 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/reset-password'
     | '/search'
     | '/shop'
     | '/success'
+    | '/verify-email'
     | '/wishlist'
     | '/category/$slug'
     | '/order-success/$id'
@@ -274,10 +296,12 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/profile'
     | '/register'
+    | '/reset-password'
     | '/search'
     | '/shop'
     | '/stylist'
     | '/success'
+    | '/verify-email'
     | '/wishlist'
     | '/category/$slug'
     | '/order-success/$id'
@@ -299,10 +323,12 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   ShopRoute: typeof ShopRoute
   StylistRoute: typeof StylistRouteWithChildren
   SuccessRoute: typeof SuccessRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
   WishlistRoute: typeof WishlistRoute
   CategorySlugRoute: typeof CategorySlugRoute
   OrderSuccessIdRoute: typeof OrderSuccessIdRoute
@@ -377,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -403,6 +436,13 @@ declare module '@tanstack/react-router' {
       path: '/success'
       fullPath: '/success'
       preLoaderRoute: typeof SuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/wishlist': {
@@ -494,10 +534,12 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   ShopRoute: ShopRoute,
   StylistRoute: StylistRouteWithChildren,
   SuccessRoute: SuccessRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
   WishlistRoute: WishlistRoute,
   CategorySlugRoute: CategorySlugRoute,
   OrderSuccessIdRoute: OrderSuccessIdRoute,

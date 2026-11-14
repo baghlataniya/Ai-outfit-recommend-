@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Eye, EyeOff, ArrowRight, AlertCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -261,13 +262,13 @@ export function AuthModal() {
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="label-xs text-muted-foreground">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Check inbox for password reset instructions.")}
-                    className="text-[11px] text-muted-foreground hover:text-foreground link-underline"
+                  <Link
+                    to="/forgot-password"
+                    onClick={() => closeAuthModal()}
+                    className="text-[11px] text-muted-foreground hover:text-foreground link-underline cursor-pointer"
                   >
                     Forgot Password?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <input

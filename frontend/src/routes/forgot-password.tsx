@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Nav } from "@/components/site/Nav";
 import { SmoothScroll } from "@/components/site/SmoothScroll";
 import { CustomCursor } from "@/components/site/CustomCursor";
+import { commerceApi } from "@/lib/api";
 
 export const Route = createFileRoute("/forgot-password")({
   component: ForgotPasswordPage,
@@ -16,8 +17,9 @@ function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       toast.error("Please enter your email address.");
@@ -25,11 +27,17 @@ function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await commerceApi.forgotPassword(email);
       setLoading(false);
       setSent(true);
-      toast.success("Password reset link dispatched.");
-    }, 800);
+      setMessage(res.message || "If an account with that email exists, we have sent instructions to your inbox.");
+      toast.success("Request processed.");
+    } catch (err: any) {
+      setLoading(false);
+      const errorMsg = err.message || "Failed to request password reset.";
+      toast.error(errorMsg);
+    }
   };
 
   return (
@@ -55,10 +63,10 @@ function ForgotPasswordPage() {
               <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-foreground/5 text-foreground">
                 <CheckCircle2 className="h-7 w-7" strokeWidth={1.5} />
               </div>
-              <p className="eyebrow mb-2">Reset Link Dispatched</p>
+              <p className="eyebrow mb-2">Instructions Dispatched</p>
               <h2 className="display-sm tracking-tight mb-4">Check Your Inbox</h2>
               <p className="text-xs leading-relaxed text-muted-foreground mb-8">
-                We have sent confidential password reset instructions to <strong className="text-foreground">{email}</strong>.
+                {message}
               </p>
               <div className="space-y-3">
                 <Link

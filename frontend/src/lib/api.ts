@@ -58,9 +58,16 @@ async function request<T = any>(
 
     return data;
   } catch (err) {
+    const rawMsg = (err as Error).message || "";
+    const isNetworkErr =
+      rawMsg.includes("Load failed") ||
+      rawMsg.includes("Failed to fetch") ||
+      rawMsg.includes("NetworkError");
     return {
       success: false,
-      message: (err as Error).message || "Network error. Please check backend connection.",
+      message: isNetworkErr
+        ? "Unable to connect to server. Please check backend connection."
+        : rawMsg || "Network error occurred.",
     };
   }
 }
@@ -162,6 +169,17 @@ export const commerceApi = {
     api.patch<{ product: any }>(`/products/${id}`, productData),
 
   adminDeleteProduct: (id: string) => api.delete<{ message: string }>(`/products/${id}`),
+
+  // Auth & Email Transactional Helpers
+  forgotPassword: (email: string) => api.post<{ message: string }>("/auth/forgot-password", { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>("/auth/reset-password", { token, newPassword }),
+
+  verifyEmail: (token: string) => api.post<{ message: string; user?: any }>("/auth/verify-email", { token }),
+
+  resendVerification: (email: string) =>
+    api.post<{ message: string }>("/auth/resend-verification", { email }),
 
   loginGoogle: (credential: string) =>
     api.post<{ user: any; token: string }>("/auth/google", { credential }),

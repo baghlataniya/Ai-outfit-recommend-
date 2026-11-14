@@ -13,6 +13,10 @@ export interface IUser extends Document {
   authProvider: "local" | "google";
   googleId?: string;
   emailVerified: boolean;
+  passwordResetTokenHash?: string;
+  passwordResetExpires?: Date;
+  emailVerificationTokenHash?: string;
+  emailVerificationExpires?: Date;
   addresses: IAddress[];
   createdAt: Date;
   updatedAt: Date;
@@ -38,10 +42,18 @@ const UserSchema = new Schema<IUser>(
     authProvider: { type: String, enum: ["local", "google"], default: "local" },
     googleId: { type: String, default: undefined, sparse: true, index: true },
     emailVerified: { type: Boolean, default: false },
+    passwordResetTokenHash: { type: String, default: undefined, sparse: true, select: false },
+    passwordResetExpires: { type: Date, default: undefined, select: false },
+    emailVerificationTokenHash: { type: String, default: undefined, sparse: true, select: false },
+    emailVerificationExpires: { type: Date, default: undefined, select: false },
     addresses: [AddressSchema],
   },
   { timestamps: true }
 );
+
+// Indexes
+UserSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
+UserSchema.index({ emailVerificationTokenHash: 1 }, { sparse: true });
 
 // Hash password before saving if modified and present
 UserSchema.pre("save", async function (next) {
@@ -63,10 +75,14 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Omit password from JSON outputs
+// Omit sensitive fields from JSON outputs
 UserSchema.set("toJSON", {
   transform: (_doc, ret) => {
     delete ret.password;
+    delete ret.passwordResetTokenHash;
+    delete ret.passwordResetExpires;
+    delete ret.emailVerificationTokenHash;
+    delete ret.emailVerificationExpires;
     return ret;
   },
 });

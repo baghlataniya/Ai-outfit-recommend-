@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import jwt, { SignOptions } from "jsonwebtoken";
+import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import { User, IUser } from "../models/User";
 import { ApiResponse } from "../types";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../services/email.service";
 
 // Helper: Build allowed origins for postMessage security
 const getAllowedOrigins = (): string[] => {
@@ -82,6 +84,9 @@ export const register = async (req: Request, res: Response<ApiResponse>): Promis
       return;
     }
 
+    const rawVerificationToken = crypto.randomBytes(32).toString("hex");
+    const hashedVerificationToken = crypto.createHash("sha256").update(rawVerificationToken).digest("hex");
+
     const user = new User({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -92,14 +97,24 @@ export const register = async (req: Request, res: Response<ApiResponse>): Promis
       role: "user",
       authProvider: "local",
       emailVerified: false,
+      emailVerificationTokenHash: hashedVerificationToken,
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
 
     await user.save();
     const token = generateToken(user);
 
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:8080";
+    const verifyUrl = `${clientUrl}/verify-email?token=${rawVerificationToken}`;
+
+    // Send verification email in background (non-blocking)
+    sendVerificationEmail(user.email, `${user.firstName} ${user.lastName}`, verifyUrl).catch((err) =>
+      console.error("[Register Error] Failed to send verification email:", err)
+    );
+
     res.status(201).json({
       success: true,
-      message: "Account created successfully",
+      message: "Account created successfully. A verification email has been sent to your inbox.",
       data: {
         user,
         token,
@@ -559,6 +574,208 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response<Api
     res.status(500).json({
       success: false,
       message: "Failed to update profile.",
+      error: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * POST /api/auth/forgot-password
+ * Security: Anti-enumeration generic response. Never reveals email existence.
+ */
+export const forgotPassword = async (req: Request, res: Response<ApiResponse>): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ success: false, message: "Email address is required." });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      const rawResetToken = crypto.randomBytes(32).toString("hex");
+      const hashedResetToken = crypto.createHash("sha256").update(rawResetToken).digest("hex");
+
+      user.passwordResetTokenHash = hashedResetToken;
+      user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await user.save();
+
+      const clientUrl = process.env.CLIENT_URL || "http://localhost:8080";
+      const resetUrl = `${clientUrl}/reset-password?token=${rawResetToken}`;
+
+      await sendPasswordResetEmail(user.email, `${user.firstName} ${user.lastName}`, resetUrl);
+    }
+
+    // Security Anti-Enumeration: Always return the exact same generic message
+    res.status(200).json({
+      success: true,
+      message: "If an account with that email exists, we have sent instructions to your inbox.",
+    });
+  } catch (error) {
+    console.error("[Forgot Password Error]", error);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while processing your request.",
+      error: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Validates token and updates user password securely.
+ */
+export const resetPassword = async (req: Request, res: Response<ApiResponse>): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      res.status(400).json({ success: false, message: "Token and new password are required." });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+      return;
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token.trim()).digest("hex");
+
+    const user = await User.findOne({
+      passwordResetTokenHash: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    }).select("+passwordResetTokenHash +passwordResetExpires");
+
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid or expired password reset link. Please request a new link.",
+        error: "INVALID_OR_EXPIRED_TOKEN",
+      });
+      return;
+    }
+
+    // Update password (triggers bcrypt pre-save hook)
+    user.password = newPassword;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can now sign in with your new password.",
+    });
+  } catch (error) {
+    console.error("[Reset Password Error]", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset password. Please try again.",
+      error: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * POST /api/auth/verify-email
+ * Validates email verification token and sets emailVerified = true.
+ */
+export const verifyEmail = async (req: Request, res: Response<ApiResponse>): Promise<void> => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      res.status(400).json({ success: false, message: "Verification token is required." });
+      return;
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token.trim()).digest("hex");
+
+    const user = await User.findOne({
+      emailVerificationTokenHash: hashedToken,
+    }).select("+emailVerificationTokenHash +emailVerificationExpires");
+
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid verification token or account already verified.",
+        error: "INVALID_TOKEN",
+      });
+      return;
+    }
+
+    if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
+      res.status(400).json({
+        success: false,
+        message: "Verification link has expired. Please request a new verification email.",
+        error: "TOKEN_EXPIRED",
+      });
+      return;
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationTokenHash = undefined;
+    user.emailVerificationExpires = undefined;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully.",
+      data: { user },
+    });
+  } catch (error) {
+    console.error("[Verify Email Error]", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify email.",
+      error: (error as Error).message,
+    });
+  }
+};
+
+/**
+ * POST /api/auth/resend-verification
+ * Resends email verification token. Generic anti-enumeration response.
+ */
+export const resendVerification = async (req: Request, res: Response<ApiResponse>): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ success: false, message: "Email address is required." });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (user && !user.emailVerified) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+      user.emailVerificationTokenHash = hashedToken;
+      user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      await user.save();
+
+      const clientUrl = process.env.CLIENT_URL || "http://localhost:8080";
+      const verifyUrl = `${clientUrl}/verify-email?token=${rawToken}`;
+
+      await sendVerificationEmail(user.email, `${user.firstName} ${user.lastName}`, verifyUrl);
+    }
+
+    // Security Anti-Enumeration: Always return generic message
+    res.status(200).json({
+      success: true,
+      message: "If an unverified account with that email exists, a new verification link has been sent.",
+    });
+  } catch (error) {
+    console.error("[Resend Verification Error]", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process request.",
       error: (error as Error).message,
     });
   }
