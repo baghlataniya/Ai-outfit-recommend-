@@ -224,12 +224,12 @@ function scoreProductForBrief(product: IProduct, brief: StylistBrief, seed: numb
   const gender = (brief.gender || "").toLowerCase();
   const pGender = (product.gender || "").toLowerCase();
   if (gender === "male" || gender === "men") {
-    if (pGender === "women") return -1000;
-    if (pGender === "men") score += 35;
+    if (pGender === "women") return -2000;
+    if (pGender === "men") score += 40;
     if (pGender === "unisex") score += 20;
   } else if (gender === "female" || gender === "women") {
-    if (pGender === "men") return -1000;
-    if (pGender === "women") score += 35;
+    if (pGender === "men") return -2000;
+    if (pGender === "women") score += 40;
     if (pGender === "unisex") score += 20;
   }
 
@@ -240,41 +240,62 @@ function scoreProductForBrief(product: IProduct, brief: StylistBrief, seed: numb
   const pStyle = (product.style || "").toLowerCase();
   const tags = (product.tags || []).map((t) => t.toLowerCase());
 
-  // 2. Occasion Matching
-  const occasion = (brief.occasion || "").toLowerCase();
-  if (occasion.includes("wedding") || occasion.includes("formal") || occasion.includes("black tie")) {
-    if (pOccasion === "formal" || pCat === "dresses" || pSub === "gowns" || pSub === "blazers" || pSub === "derbies" || pSub === "coats") score += 45;
-    if (pSub === "sneakers" || pCat === "denim") score -= 35;
-  } else if (occasion.includes("party") || occasion.includes("date") || occasion.includes("evening")) {
-    if (pOccasion === "evening" || pSub === "slip dresses" || pSub === "boots" || pSub === "trenches" || pCat === "dresses") score += 40;
-    if (pSub === "jeans" && pCat === "denim") score += 10;
-  } else if (occasion.includes("office") || occasion.includes("business") || occasion.includes("work")) {
-    if (pCat === "tailoring" || pCat === "shirting" || pSub === "trousers" || pSub === "blazers" || pSub === "derbies" || pSub === "totes") score += 45;
-    if (pSub === "gowns") score -= 40;
-  } else if (occasion.includes("casual") || occasion.includes("vacation") || occasion.includes("lounge") || occasion.includes("gym") || occasion.includes("festival")) {
-    if (pCat === "denim" || pCat === "knitwear" || pSub === "sneakers" || pSub === "overshirts" || pSub === "skirts") score += 45;
-    if (pSub === "gowns" || pSub === "derbies") score -= 35;
+  // 2. Weather Matching (Strict Penalties & Boosts)
+  const weather = (brief.weather || "").toLowerCase();
+  const isCold = weather.includes("cold") || weather.includes("snow") || weather.includes("wind") || weather.includes("winter");
+  const isWarm = weather.includes("sunny") || weather.includes("warm") || weather.includes("summer") || weather.includes("spring");
+  const isRain = weather.includes("rain");
+
+  if (isWarm) {
+    // Heavily penalize heavy winter coats and turtlenecks in hot/sunny weather
+    if (pMat.includes("virgin wool") || pMat.includes("double-faced") || pCat === "outerwear" || pSub === "parkas" || pSub === "boots" || pSub === "scarves" || pSub.includes("turtleneck")) {
+      score -= 150;
+    }
+    // Strongly reward breathable lightweight items
+    if (pMat.includes("linen") || pMat.includes("silk") || pMat.includes("poplin") || pSub === "mules" || pSub === "sneakers" || pSub === "skirts" || pSub === "camisole") {
+      score += 65;
+    }
+  } else if (isCold) {
+    if (pMat.includes("wool") || pMat.includes("cashmere") || pCat === "outerwear" || pSub === "boots" || pSub === "scarves" || pSub.includes("turtleneck")) {
+      score += 65;
+    }
+    if (pMat.includes("linen") || pSub === "camisole" || pSub === "mules") {
+      score -= 80;
+    }
+  } else if (isRain) {
+    if (pSub.includes("trench") || pSub.includes("parka") || pSub.includes("boot") || pMat.includes("gabardine")) {
+      score += 60;
+    }
   }
 
-  // 3. Weather Matching
-  const weather = (brief.weather || "").toLowerCase();
-  if (weather.includes("cold") || weather.includes("snow") || weather.includes("wind")) {
-    if (pMat.includes("wool") || pMat.includes("cashmere") || pCat === "outerwear" || pSub === "boots" || pSub === "scarves") score += 40;
-    if (pMat.includes("linen") || pMat.includes("silk") || pSub === "sneakers") score -= 25;
-  } else if (weather.includes("sunny") || weather.includes("warm")) {
-    if (pMat.includes("linen") || pMat.includes("silk") || pCat === "shirting" || pSub === "sneakers" || pSub === "skirts") score += 45;
-    if (pMat.includes("virgin wool") || pSub === "boots" || pSub === "scarves") score -= 30;
-  } else if (weather.includes("rain")) {
-    if (pSub.includes("trench") || pSub.includes("boots") || pMat.includes("gabardine")) score += 45;
+  // 3. Occasion Matching
+  const occasion = (brief.occasion || "").toLowerCase();
+  const isFormalWedding = occasion.includes("wedding") || occasion.includes("formal") || occasion.includes("black tie");
+  const isEveningParty = occasion.includes("party") || occasion.includes("date") || occasion.includes("evening");
+  const isOfficeWork = occasion.includes("office") || occasion.includes("business") || occasion.includes("work");
+  const isCasualLounge = occasion.includes("casual") || occasion.includes("vacation") || occasion.includes("lounge") || occasion.includes("gym") || occasion.includes("festival");
+
+  if (isFormalWedding) {
+    if (pCat === "dresses" || pSub === "gowns" || pSub === "blazers" || pSub === "derbies" || pSub === "trousers") score += 55;
+    if (pSub === "sneakers" || pCat === "denim") score -= 90;
+  } else if (isEveningParty) {
+    if (pCat === "dresses" || pSub === "slip dresses" || pSub === "mules" || pSub === "boots" || pSub === "camisole" || pMat.includes("silk")) score += 50;
+    if (pSub === "parkas") score -= 40;
+  } else if (isOfficeWork) {
+    if (pCat === "tailoring" || pCat === "shirting" || pSub === "trousers" || pSub === "blazers" || pSub === "derbies" || pSub === "totes") score += 50;
+    if (pSub === "gowns" || pCat === "denim") score -= 60;
+  } else if (isCasualLounge) {
+    if (pCat === "denim" || pCat === "knitwear" || pSub === "sneakers" || pSub === "overshirts" || pSub === "skirts") score += 50;
+    if (pSub === "gowns" || pSub === "derbies" || pSub === "blazers") score -= 40;
   }
 
   // 4. Style Matching
   const style = (brief.style || "").toLowerCase();
   if (pStyle && style.includes(pStyle)) score += 30;
   if (style.includes("old money") || style.includes("luxury") || style.includes("elegant")) {
-    if (pMat.includes("cashmere") || pMat.includes("virgin wool") || pCat === "tailoring" || pSub === "gowns") score += 35;
+    if (pMat.includes("cashmere") || pMat.includes("silk") || pCat === "tailoring" || pSub === "gowns") score += 35;
   } else if (style.includes("streetwear") || style.includes("oversized") || style.includes("sporty")) {
-    if (pCat === "denim" || pSub === "sneakers" || pSub === "overshirts" || pSub === "trenches") score += 35;
+    if (pCat === "denim" || pSub === "sneakers" || pSub === "overshirts") score += 35;
   } else if (style.includes("minimal") || style.includes("modern")) {
     if (tags.includes("minimal") || pStyle === "minimal") score += 30;
   }
@@ -283,12 +304,12 @@ function scoreProductForBrief(product: IProduct, brief: StylistBrief, seed: numb
   if (Array.isArray(brief.colors) && brief.colors.length > 0) {
     const briefColors = brief.colors.map((c) => c.toLowerCase());
     const matchesColor = (product.colors || []).some((c) => briefColors.includes(c.toLowerCase()));
-    if (matchesColor) score += 25;
+    if (matchesColor) score += 30;
   }
 
-  // 6. Dynamic seed jitter to rotate looks when user clicks "Generate Again"
+  // 6. Dynamic seed jitter for varied rotations
   const charSum = (product._id.toString() + String(seed)).split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-  const jitter = (charSum % 21) - 10; // -10 to +10 pts variation
+  const jitter = (charSum % 31) - 15; // -15 to +15 pts variation
   score += jitter;
 
   return score;
@@ -300,10 +321,25 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
   // Score all products
   const scored = catalog
     .map((p) => ({ product: p, score: scoreProductForBrief(p, brief, seed) }))
-    .filter((entry) => entry.score > 0)
+    .filter((entry) => entry.score > -500)
     .sort((a, b) => b.score - a.score);
 
   const pool = scored.length >= 6 ? scored.map((s) => s.product) : catalog;
+
+  // Context flags
+  const weather = (brief.weather || "").toLowerCase();
+  const isCold = weather.includes("cold") || weather.includes("snow") || weather.includes("wind") || weather.includes("winter");
+  const isWarm = weather.includes("sunny") || weather.includes("warm") || weather.includes("summer") || weather.includes("spring");
+  const isRain = weather.includes("rain");
+
+  const occasionLabel = brief.occasion || "Formal Evening";
+  const weatherLabel = brief.weather || "All Season";
+  const styleLabel = brief.style || "Minimalist";
+  const genderPref = (brief.gender || "").toLowerCase();
+
+  const isEveningParty = occasionLabel.toLowerCase().includes("party") || occasionLabel.toLowerCase().includes("date") || occasionLabel.toLowerCase().includes("evening");
+  const isFormalWedding = occasionLabel.toLowerCase().includes("wedding") || occasionLabel.toLowerCase().includes("formal") || occasionLabel.toLowerCase().includes("black tie");
+  const isOffice = occasionLabel.toLowerCase().includes("office") || occasionLabel.toLowerCase().includes("business") || occasionLabel.toLowerCase().includes("work");
 
   // Separate pools by clothing slot
   const outerwearPool = pool.filter((p) => p.category === "Outerwear");
@@ -319,7 +355,6 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
 
   const pickItem = (candidates: IProduct[], offset: number): IProduct | null => {
     if (!candidates || candidates.length === 0) return null;
-    // Prefer unused items first, rotated by seed & offset
     const unused = candidates.filter((p) => !usedProductIds.has(p._id.toString()));
     const targetPool = unused.length > 0 ? unused : candidates;
     const selected = targetPool[(seed + offset) % targetPool.length];
@@ -327,39 +362,45 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
     return selected;
   };
 
-  const occasionLabel = brief.occasion || "Formal Evening";
-  const weatherLabel = brief.weather || "All Season";
-  const styleLabel = brief.style || "Minimalist";
-  const genderPref = (brief.gender || "").toLowerCase();
-
-  // Archetype 1: Signature Anchor Silhouette
+  // ==========================================
+  // LOOK 1: Primary Statement Architecture
+  // ==========================================
   const slots1: RecommendedSlot[] = [];
-  const coat1 = pickItem(outerwearPool, 0);
-  if (coat1) slots1.push({ slot: "Outerwear", product: coat1 });
 
-  // Top or Dress
-  if (genderPref === "female" && dressesPool.length > 0 && occasionLabel.toLowerCase().includes("formal")) {
+  if (genderPref === "female" && dressesPool.length > 0 && (isEveningParty || isFormalWedding)) {
+    // Evening / Formal Dress Silhouette
     const dress = pickItem(dressesPool, 0);
     if (dress) slots1.push({ slot: "Top", product: dress });
+    const shoe1 = pickItem(shoesPool, 0);
+    if (shoe1) slots1.push({ slot: "Shoes", product: shoe1 });
+    const acc1 = pickItem(accessoriesPool, 0);
+    if (acc1) slots1.push({ slot: "Accessories", product: acc1 });
+    if (isCold) {
+      const coat1 = pickItem(outerwearPool, 0);
+      if (coat1) slots1.unshift({ slot: "Outerwear", product: coat1 });
+    }
   } else {
+    // Outerwear only if cold/rain or tailored formal
+    if ((isCold || isRain || isOffice) && outerwearPool.length > 0 && !isWarm) {
+      const coat1 = pickItem(outerwearPool, 0);
+      if (coat1) slots1.push({ slot: "Outerwear", product: coat1 });
+    }
     const top1 = pickItem(topsPool, 0);
     if (top1) slots1.push({ slot: "Top", product: top1 });
     const bot1 = pickItem(bottomsPool, 0);
     if (bot1) slots1.push({ slot: "Bottom", product: bot1 });
+    const shoe1 = pickItem(shoesPool, 0);
+    if (shoe1) slots1.push({ slot: "Shoes", product: shoe1 });
+    const acc1 = pickItem(accessoriesPool, 0);
+    if (acc1) slots1.push({ slot: "Accessories", product: acc1 });
   }
-
-  const shoe1 = pickItem(shoesPool, 0);
-  if (shoe1) slots1.push({ slot: "Shoes", product: shoe1 });
-
-  const acc1 = pickItem(accessoriesPool, 0);
-  if (acc1) slots1.push({ slot: "Accessories", product: acc1 });
 
   if (slots1.length > 0) {
     const totalVal = slots1.reduce((acc, s) => acc + (s.product.price || 0), 0);
     const heroImg = slots1.find((s) => s.slot === "Outerwear")?.product.images?.[0] || slots1[0].product.images?.[0] || "/assets/product-1.jpg";
-    const heroMaterial = slots1[0]?.product.material || "Virgin Wool";
-    const title = `${heroMaterial.split(" ")[0]} Architectural Drape`;
-    const rationale = `Engineered for ${occasionLabel.toLowerCase()} in ${weatherLabel.toLowerCase()} weather. Pairing ${slots1[0]?.product.name} with ${slots1[1]?.product.name || "tailored foundations"} creates continuous vertical proportion and rich textural contrast.`;
+    const primaryMat = slots1[0]?.product.material || "Virgin Wool";
+    const title = isWarm ? `${slots1[0]?.product.category} Summer Column` : `${primaryMat.split(" ")[0]} Architectural Line`;
+    const rationale = `Curated for ${occasionLabel.toLowerCase()} in ${weatherLabel.toLowerCase()} conditions. Pairing ${slots1[0]?.product.name} with ${slots1[1]?.product.name || "structured foundations"} guarantees tonal continuity, textural richness, and effortless poise.`;
 
     outfits.push({
       id: `curator_outfit_look1_seed_${seed}`,
@@ -372,24 +413,42 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
       totalValue: totalVal,
       image: heroImg,
       aiExplanation: rationale,
-      styleHighlights: [`Structured ${heroMaterial}`, "Disciplined Tonal Balance", "Elongated Proportion"],
+      styleHighlights: [`Textile: ${primaryMat}`, "Architectural Proportion", "Tone-on-Tone Balance"],
       products: slots1,
     });
   }
 
-  // Archetype 2: Contemporary Atelier Tailoring
+  // ==========================================
+  // LOOK 2: Contemporary Atelier Silhouette
+  // ==========================================
   const slots2: RecommendedSlot[] = [];
-  const blazer2 = pickItem(blazersPool.length > 0 ? blazersPool : outerwearPool, 1);
-  if (blazer2) slots2.push({ slot: "Outerwear", product: blazer2 });
 
-  const top2 = pickItem(topsPool, 1);
-  if (top2) slots2.push({ slot: "Top", product: top2 });
+  if (blazersPool.length > 0 && (isOffice || isFormalWedding || isEveningParty) && !isWarm) {
+    const blazer2 = pickItem(blazersPool, 1);
+    if (blazer2) slots2.push({ slot: "Outerwear", product: blazer2 });
+  } else if (outerwearPool.length > 0 && isCold) {
+    const coat2 = pickItem(outerwearPool, 1);
+    if (coat2) slots2.push({ slot: "Outerwear", product: coat2 });
+  }
 
-  const bot2 = pickItem(bottomsPool, 1);
-  if (bot2) slots2.push({ slot: "Bottom", product: bot2 });
+  // If female and dress available and didn't use dress in Look 1
+  if (genderPref === "female" && dressesPool.length > 0 && !slots1.some((s) => s.product.category === "Dresses") && isEveningParty) {
+    const dress2 = pickItem(dressesPool, 1);
+    if (dress2) slots2.push({ slot: "Top", product: dress2 });
+  } else {
+    const top2 = pickItem(topsPool, 1);
+    if (top2) slots2.push({ slot: "Top", product: top2 });
+    const bot2 = pickItem(bottomsPool, 1);
+    if (bot2) slots2.push({ slot: "Bottom", product: bot2 });
+  }
 
   const shoe2 = pickItem(shoesPool, 1);
   if (shoe2) slots2.push({ slot: "Shoes", product: shoe2 });
+
+  if (accessoriesPool.length > 1) {
+    const acc2 = pickItem(accessoriesPool, 1);
+    if (acc2) slots2.push({ slot: "Accessories", product: acc2 });
+  }
 
   if (slots2.length > 0) {
     const totalVal = slots2.reduce((acc, s) => acc + (s.product.price || 0), 0);
@@ -397,7 +456,7 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
     const topProd = slots2.find((s) => s.slot === "Top")?.product;
     const botProd = slots2.find((s) => s.slot === "Bottom")?.product;
     const title = `Contemporary ${topProd?.category || "Atelier"} Tailoring`;
-    const rationale = `Balanced for ${occasionLabel.toLowerCase()}. The relaxed structure of ${botProd?.name || "tailored trousers"} harmonizes with the soft hand of ${topProd?.name || "cashmere knitwear"} for effortless refinement.`;
+    const rationale = `Constructed with modern proportions for ${occasionLabel.toLowerCase()}. The relaxed structure of ${botProd?.name || "tailored separates"} harmonizes with ${topProd?.name || "curated essentials"} for versatile luxury.`;
 
     outfits.push({
       id: `curator_outfit_look2_seed_${seed}`,
@@ -410,30 +469,35 @@ function generateDynamicHeuristicOutfits(brief: StylistBrief, catalog: IProduct[
       totalValue: totalVal,
       image: heroImg,
       aiExplanation: rationale,
-      styleHighlights: ["Half-Canvassed Silhouette", "Breathable Soft Weave", "Day-to-Evening Transition"],
+      styleHighlights: ["Refined Drape", "Breathable Soft Weave", "Day-to-Night Versatility"],
       products: slots2,
     });
   }
 
-  // Archetype 3: Essential Capsule Monolith
+  // ==========================================
+  // LOOK 3: Essential Capsule Monolith
+  // ==========================================
   const slots3: RecommendedSlot[] = [];
-  const top3 = pickItem(topsPool, 2) || pickItem(dressesPool, 1);
+
+  const top3 = pickItem(topsPool, 2) || pickItem(dressesPool, 2);
   if (top3) slots3.push({ slot: "Top", product: top3 });
 
-  const bot3 = pickItem(bottomsPool, 2);
-  if (bot3 && top3?.category !== "Dresses") slots3.push({ slot: "Bottom", product: bot3 });
+  if (top3?.category !== "Dresses") {
+    const bot3 = pickItem(bottomsPool, 2);
+    if (bot3) slots3.push({ slot: "Bottom", product: bot3 });
+  }
 
   const shoe3 = pickItem(shoesPool, 2);
   if (shoe3) slots3.push({ slot: "Shoes", product: shoe3 });
 
-  const acc3 = pickItem(accessoriesPool, 1);
+  const acc3 = pickItem(accessoriesPool, 2) || pickItem(accessoriesPool, 0);
   if (acc3) slots3.push({ slot: "Accessories", product: acc3 });
 
   if (slots3.length > 0) {
     const totalVal = slots3.reduce((acc, s) => acc + (s.product.price || 0), 0);
     const heroImg = slots3[0]?.product.images?.[0] || "/assets/product-3.jpg";
     const title = `Minimalist ${occasionLabel} Capsule`;
-    const rationale = `A focused monochrome look designed for ease and movement. Stripped of extraneous ornamentation to celebrate pure cut and high-grade textile durability in ${weatherLabel.toLowerCase()} conditions.`;
+    const rationale = `A focused monochrome edit emphasizing pure form and textile excellence. Designed for ease of movement and enduring elegance under ${weatherLabel.toLowerCase()} conditions.`;
 
     outfits.push({
       id: `curator_outfit_look3_seed_${seed}`,

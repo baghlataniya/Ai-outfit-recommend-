@@ -15,7 +15,9 @@ export const getRecommendations = async (
 ): Promise<void> => {
   try {
     const brief: StylistBrief = req.body || {};
+    console.log(`[AI Stylist] Curating recommendations for brief:`, JSON.stringify(brief));
     const result = await generateOutfits(brief);
+    console.log(`[AI Stylist] Generated ${result.outfits.length} looks via ${result.generatedBy}`);
 
     res.status(200).json({
       success: true,

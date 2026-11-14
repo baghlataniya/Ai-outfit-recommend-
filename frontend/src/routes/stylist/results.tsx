@@ -88,16 +88,18 @@ function getReplacementCandidates(slotName: string, brief: Brief): Product[] {
         product.category === name || product.name.toLowerCase().includes(name.toLowerCase()),
     );
 
-  if (slotName === "Top") {
-    return category("Shirting").concat(category("Knitwear"), category("Outerwear"), category("Dresses"));
+  if (slotName === "Outerwear") {
+    return category("Outerwear").concat(pool.filter((p) => p.name.includes("Blazer") || p.name.includes("Coat") || p.name.includes("Trench")));
+  } else if (slotName === "Top") {
+    return category("Shirting").concat(category("Knitwear"), category("Dresses"));
   } else if (slotName === "Bottom") {
-    return category("Tailoring").concat(category("Denim"));
+    return category("Tailoring").concat(category("Denim")).filter((p) => !p.name.includes("Blazer"));
   } else if (slotName === "Shoes") {
     return category("Shoes");
   } else if (slotName === "Accessories") {
     return category("Accessories");
   } else if (slotName === "Bag") {
-    return pool.filter((p) => p.name.toLowerCase().includes("bag") || p.category === "Accessories");
+    return pool.filter((p) => p.name.toLowerCase().includes("bag") || p.name.toLowerCase().includes("tote") || p.category === "Accessories");
   } else if (slotName === "Watch") {
     return pool.filter((p) => p.name.toLowerCase().includes("watch") || p.category === "Accessories");
   }
@@ -105,150 +107,225 @@ function getReplacementCandidates(slotName: string, brief: Brief): Product[] {
 }
 
 function buildOutfits(brief: Brief, seed = 0): Outfit[] {
-  const preferred = products.filter((product) => {
-    if (
-      brief.gender &&
-      brief.gender !== "Unisex" &&
-      product.gender !== brief.gender &&
-      product.gender !== "Unisex"
-    )
-      return false;
-    if (brief.occasion && !product.occasion.toLowerCase().includes(brief.occasion.toLowerCase()))
-      return false;
-    if (brief.style && !product.style.toLowerCase().includes(brief.style.toLowerCase()))
-      return false;
-    if (brief.brands?.length && !brief.brands.includes(product.brand)) return false;
+  const gender = (brief.gender || "").toLowerCase();
+  const weather = (brief.weather || "").toLowerCase();
+  const occasion = (brief.occasion || "").toLowerCase();
+  const style = (brief.style || "").toLowerCase();
+
+  const isCold = weather.includes("cold") || weather.includes("snow") || weather.includes("wind") || weather.includes("winter");
+  const isWarm = weather.includes("sunny") || weather.includes("warm") || weather.includes("summer") || weather.includes("spring");
+  const isRain = weather.includes("rain");
+
+  const isEvening = occasion.includes("party") || occasion.includes("date") || occasion.includes("evening");
+  const isFormal = occasion.includes("wedding") || occasion.includes("formal") || occasion.includes("black tie");
+  const isOffice = occasion.includes("office") || occasion.includes("business") || occasion.includes("work");
+
+  // Filter products by gender and budget
+  const eligible = products.filter((product) => {
+    const pGender = product.gender.toLowerCase();
+    if (gender === "male" || gender === "men") {
+      if (pGender === "women") return false;
+    } else if (gender === "female" || gender === "women") {
+      if (pGender === "men") return false;
+    }
     if (brief.budget && product.priceValue > brief.budget) return false;
     return true;
   });
 
-  const pool = preferred.length ? preferred : products;
-  const category = (name: string) =>
-    pool.filter(
-      (product) =>
-        product.category === name || product.name.toLowerCase().includes(name.toLowerCase()),
-    );
+  const pool = eligible.length >= 8 ? eligible : products;
+
+  // Score pool items for this specific brief
+  const scored = pool.map((product) => {
+    let score = 50;
+    const cat = product.category.toLowerCase();
+    const mat = product.description.toLowerCase();
+    const occ = product.occasion.toLowerCase();
+
+    if (isWarm) {
+      if (mat.includes("wool") || cat === "outerwear" || product.name.includes("Boot") || product.name.includes("Scarf") || product.name.includes("Parka") || product.name.includes("Coat")) {
+        score -= 100;
+      }
+      if (mat.includes("linen") || mat.includes("silk") || mat.includes("poplin") || product.name.includes("Mule") || product.name.includes("Sneaker") || product.name.includes("Skirt")) {
+        score += 60;
+      }
+    } else if (isCold) {
+      if (mat.includes("wool") || mat.includes("cashmere") || cat === "outerwear" || product.name.includes("Boot") || product.name.includes("Turtleneck") || product.name.includes("Scarf")) {
+        score += 60;
+      }
+      if (mat.includes("linen") || product.name.includes("Camisole") || product.name.includes("Mule")) {
+        score -= 80;
+      }
+    }
+
+    if (isFormal || isEvening) {
+      if (cat === "dresses" || product.name.includes("Blazer") || product.name.includes("Gown") || product.name.includes("Trouser") || product.name.includes("Derby") || product.name.includes("Mule")) {
+        score += 50;
+      }
+      if (cat === "denim" || product.name.includes("Sneaker")) {
+        score -= 60;
+      }
+    } else if (isOffice) {
+      if (cat === "tailoring" || cat === "shirting" || product.name.includes("Blazer") || product.name.includes("Trouser") || product.name.includes("Tote")) {
+        score += 50;
+      }
+    } else {
+      if (cat === "denim" || cat === "knitwear" || product.name.includes("Sneaker") || product.name.includes("Overshirt")) {
+        score += 50;
+      }
+    }
+
+    // Seed jitter for rotation
+    const charSum = (product.id + String(seed)).split("").reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+    score += (charSum % 25) - 12;
+
+    return { product, score };
+  }).sort((a, b) => b.score - a.score).map((s) => s.product);
+
+  const outerwear = scored.filter((p) => p.category === "Outerwear");
+  const tops = scored.filter((p) => ["Shirting", "Knitwear"].includes(p.category));
+  const dresses = scored.filter((p) => p.category === "Dresses");
+  const bottoms = scored.filter((p) => ["Tailoring", "Denim"].includes(p.category) && !p.name.includes("Blazer"));
+  const blazers = scored.filter((p) => p.name.includes("Blazer"));
+  const shoes = scored.filter((p) => p.category === "Shoes");
+  const accessories = scored.filter((p) => p.category === "Accessories");
+
+  const used = new Set<string>();
+  const pick = (list: Product[], offset: number): Product | null => {
+    if (!list || list.length === 0) return null;
+    const unused = list.filter((p) => !used.has(p.id));
+    const target = unused.length > 0 ? unused : list;
+    const chosen = target[(seed + offset) % target.length];
+    used.add(chosen.id);
+    return chosen;
+  };
 
   const outfits: Outfit[] = [];
-  const used = new Set<string>();
+  const occasionLabel = brief.occasion || "Formal Evening";
+  const weatherLabel = brief.weather || "All Season";
 
-  const templates = [
-    {
-      id: "signature-minimal",
-      title: "Signature Minimal",
-      occasion: brief.occasion ?? "Everyday",
-      weather: brief.weather ?? "Indoor",
-      slots: [
-        { slot: "Top" as const, list: category("Shirting").concat(category("Knitwear"), pool) },
-        { slot: "Bottom" as const, list: category("Tailoring").concat(category("Denim"), pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        {
-          slot: "Bag" as const,
-          list: category("Accessories").concat(
-            pool.filter((product) => product.category !== "Shoes"),
-          ),
-        },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-    {
-      id: "soft-evening",
-      title: "Soft Evening",
-      occasion:
-        brief.occasion === "Party" || brief.occasion === "Date Night" ? brief.occasion : "Evening",
-      weather: brief.weather ?? "Cold",
-      slots: [
-        { slot: "Top" as const, list: category("Dresses").concat(category("Shirting"), pool) },
-        { slot: "Bottom" as const, list: category("Tailoring").concat(category("Dresses"), pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        { slot: "Bag" as const, list: category("Accessories").concat(pool) },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-    {
-      id: "weather-layered",
-      title: "Weather Layered",
-      occasion: brief.occasion === "Vacation" ? brief.occasion : "Travel",
-      weather: brief.weather ?? "Windy",
-      slots: [
-        { slot: "Top" as const, list: category("Knitwear").concat(category("Shirting"), pool) },
-        { slot: "Bottom" as const, list: category("Denim").concat(category("Tailoring"), pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        { slot: "Bag" as const, list: category("Accessories").concat(pool) },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-    {
-      id: "quiet-luxury-casual",
-      title: "Quiet Luxury Casual",
-      occasion: brief.occasion ?? "Casual",
-      weather: brief.weather ?? "Sunny",
-      slots: [
-        { slot: "Top" as const, list: category("Knitwear").concat(category("Shirting"), pool) },
-        { slot: "Bottom" as const, list: category("Denim").concat(pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        { slot: "Bag" as const, list: category("Accessories").concat(pool) },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-    {
-      id: "tailored-executive",
-      title: "Tailored Executive",
-      occasion: brief.occasion ?? "Office",
-      weather: brief.weather ?? "Indoor",
-      slots: [
-        { slot: "Top" as const, list: category("Tailoring").concat(category("Shirting"), pool) },
-        { slot: "Bottom" as const, list: category("Tailoring").concat(pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        { slot: "Bag" as const, list: category("Accessories").concat(pool) },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-    {
-      id: "relaxed-monochrome",
-      title: "Relaxed Monochrome",
-      occasion: brief.occasion ?? "Lounge",
-      weather: brief.weather ?? "Mild",
-      slots: [
-        { slot: "Top" as const, list: category("Knitwear").concat(category("Shirting"), pool) },
-        { slot: "Bottom" as const, list: category("Denim").concat(pool) },
-        { slot: "Shoes" as const, list: category("Shoes") },
-        { slot: "Accessories" as const, list: category("Accessories") },
-        { slot: "Bag" as const, list: category("Accessories").concat(pool) },
-        { slot: "Watch" as const, list: category("Accessories").concat(pool) },
-      ],
-    },
-  ];
+  // Look 1: Primary Statement
+  const slots1: OutfitSlot[] = [];
+  if (gender === "female" && dresses.length > 0 && (isEvening || isFormal)) {
+    const d = pick(dresses, 0);
+    if (d) slots1.push({ slot: "Top", product: d });
+    const s = pick(shoes, 0);
+    if (s) slots1.push({ slot: "Shoes", product: s });
+    const a = pick(accessories, 0);
+    if (a) slots1.push({ slot: "Accessories", product: a });
+    if (isCold) {
+      const c = pick(outerwear, 0);
+      if (c) slots1.unshift({ slot: "Outerwear" as any, product: c });
+    }
+  } else {
+    if ((isCold || isRain || isOffice) && outerwear.length > 0 && !isWarm) {
+      const c = pick(outerwear, 0);
+      if (c) slots1.push({ slot: "Outerwear" as any, product: c });
+    }
+    const t = pick(tops, 0);
+    if (t) slots1.push({ slot: "Top", product: t });
+    const b = pick(bottoms, 0);
+    if (b) slots1.push({ slot: "Bottom", product: b });
+    const s = pick(shoes, 0);
+    if (s) slots1.push({ slot: "Shoes", product: s });
+    const a = pick(accessories, 0);
+    if (a) slots1.push({ slot: "Accessories", product: a });
+  }
 
-  templates.forEach((template, templateIndex) => {
-    const localUsed = new Set<string>(used);
-    const slots = template.slots.map((slotConfig, slotIndex) => {
-      const candidate = pickNext(slotConfig.list, localUsed, slotIndex + seed + templateIndex);
-      localUsed.add(candidate.id);
-      return { slot: slotConfig.slot, product: candidate };
-    });
-
-    slots.forEach((slot) => used.add(slot.product.id));
-
-    const totalValue = slots.reduce((sum, slot) => sum + slot.product.priceValue, 0);
-
+  if (slots1.length > 0) {
+    const totalVal = slots1.reduce((acc, slot) => acc + slot.product.priceValue, 0);
+    const hero = slots1[0].product;
     outfits.push({
-      id: template.id,
-      title: template.title,
-      occasion: template.occasion,
-      weather: template.weather,
-      match: [99, 98, 97, 96, 95, 95][templateIndex],
-      total: `$${totalValue.toLocaleString("en-US")}`,
-      totalValue,
-      image: slots[0]?.product.image ?? products[0].image,
-      products: slots,
+      id: `look1_${seed}`,
+      title: isWarm ? `${hero.category} Summer Column` : `${hero.name.split(" ")[0]} Architectural Drape`,
+      occasion: occasionLabel,
+      weather: weatherLabel,
+      match: 99,
+      total: `$${totalVal.toLocaleString("en-US")}`,
+      totalValue: totalVal,
+      image: hero.image,
+      aiExplanation: `Engineered for ${occasionLabel.toLowerCase()} in ${weatherLabel.toLowerCase()} weather. Pairing ${slots1[0]?.product.name} with ${slots1[1]?.product.name || "tailored foundations"} ensures continuous vertical lines and tactile harmony.`,
+      styleHighlights: ["Balanced Proportions", "Monochrome Precision", "Textural Contrast"],
+      products: slots1,
     });
-  });
+  }
+
+  // Look 2: Contemporary Atelier
+  const slots2: OutfitSlot[] = [];
+  if (blazers.length > 0 && (isOffice || isFormal || isEvening) && !isWarm) {
+    const blz = pick(blazers, 1);
+    if (blz) slots2.push({ slot: "Outerwear" as any, product: blz });
+  } else if (outerwear.length > 0 && isCold) {
+    const c = pick(outerwear, 1);
+    if (c) slots2.push({ slot: "Outerwear" as any, product: c });
+  }
+
+  if (gender === "female" && dresses.length > 0 && !slots1.some((s) => s.product.category === "Dresses") && isEvening) {
+    const d2 = pick(dresses, 1);
+    if (d2) slots2.push({ slot: "Top", product: d2 });
+  } else {
+    const t2 = pick(tops, 1);
+    if (t2) slots2.push({ slot: "Top", product: t2 });
+    const b2 = pick(bottoms, 1);
+    if (b2) slots2.push({ slot: "Bottom", product: b2 });
+  }
+
+  const s2 = pick(shoes, 1);
+  if (s2) slots2.push({ slot: "Shoes", product: s2 });
+
+  const a2 = pick(accessories, 1);
+  if (a2) slots2.push({ slot: "Accessories", product: a2 });
+
+  if (slots2.length > 0) {
+    const totalVal = slots2.reduce((acc, slot) => acc + slot.product.priceValue, 0);
+    const hero = slots2[0].product;
+    outfits.push({
+      id: `look2_${seed}`,
+      title: `Contemporary ${hero.category} Tailoring`,
+      occasion: occasionLabel,
+      weather: weatherLabel,
+      match: 96,
+      total: `$${totalVal.toLocaleString("en-US")}`,
+      totalValue: totalVal,
+      image: hero.image,
+      aiExplanation: `A balanced transition look for ${occasionLabel.toLowerCase()}. Soft shoulder construction and relaxed drape create a contemporary, unfussy elegance.`,
+      styleHighlights: ["Relaxed Structure", "Fluid Movement", "Day-to-Evening Transition"],
+      products: slots2,
+    });
+  }
+
+  // Look 3: Essential Capsule
+  const slots3: OutfitSlot[] = [];
+  const t3 = pick(tops, 2) || pick(dresses, 2);
+  if (t3) slots3.push({ slot: "Top", product: t3 });
+
+  if (t3 && t3.category !== "Dresses") {
+    const b3 = pick(bottoms, 2);
+    if (b3) slots3.push({ slot: "Bottom", product: b3 });
+  }
+
+  const s3 = pick(shoes, 2);
+  if (s3) slots3.push({ slot: "Shoes", product: s3 });
+
+  const a3 = pick(accessories, 2) || pick(accessories, 0);
+  if (a3) slots3.push({ slot: "Accessories", product: a3 });
+
+  if (slots3.length > 0) {
+    const totalVal = slots3.reduce((acc, slot) => acc + slot.product.priceValue, 0);
+    const hero = slots3[0].product;
+    outfits.push({
+      id: `look3_${seed}`,
+      title: `Minimalist ${occasionLabel} Capsule`,
+      occasion: occasionLabel,
+      weather: weatherLabel,
+      match: 94,
+      total: `$${totalVal.toLocaleString("en-US")}`,
+      totalValue: totalVal,
+      image: hero.image,
+      aiExplanation: `A focused monochrome composition designed for understated refinement. Celebrates pure textile tactility and cut without superfluous detailing.`,
+      styleHighlights: ["Permanent Archive", "Tactile Hand", "Monochrome Purity"],
+      products: slots3,
+    });
+  }
 
   return outfits;
 }
@@ -525,6 +602,11 @@ function ResultsPage() {
                   ₹{brief.budget.toLocaleString("en-IN")}
                 </span>
               ) : null}
+              {![brief.gender, brief.occasion, brief.weather, brief.style, brief.bodyType, brief.budget].some(Boolean) && (
+                <span className="label-xs border border-border px-3 py-2 text-muted-foreground">
+                  Atelier Editorial Archive (Complete Edit)
+                </span>
+              )}
             </div>
           </div>
         </div>
